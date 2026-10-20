@@ -2,11 +2,38 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Pomodoro cozy con un lago de patitos." />
+  <meta name="theme-color" content="#2b7a78" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="PatoPomodoro" />
   <title>PatoPomodoro</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <!-- Tailwind ya generado (sin CDN, funciona sin internet). Va antes del <style> propio.
+       Si se añaden clases nuevas al HTML, regenerarlo con:
+       npx tailwindcss@3.4.17 -i tools/tailwind.input.css -o css/tailwind.css --content index.html --minify -->
+  <link rel="stylesheet" href="css/tailwind.css" />
   <style>
+    /* Fuentes incluidas en la app (subconjunto latino, licencia SIL OFL: ver fonts/) */
+    @font-face {
+      font-family: 'Fredoka';
+      font-style: normal;
+      font-weight: 300 700;
+      font-display: swap;
+      src: url('fonts/fredoka.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Quicksand';
+      font-style: normal;
+      font-weight: 300 700;
+      font-display: swap;
+      src: url('fonts/quicksand.woff2') format('woff2');
+    }
+
     /* ==========================================================================
        CAPA 1: VARIABLES CSS DE TEMA UI (Fácilmente modificables)
        Cambia estos valores para transformar toda la interfaz sin tocar el HTML/JS.
@@ -198,6 +225,13 @@
       background-color: var(--track-bg);
     }
 
+    .tool-fps {
+      padding: 0 0.6rem;
+      font-size: 0.72rem;
+      font-variant-numeric: tabular-nums;
+      background-color: var(--chip-bg);
+    }
+
     .tool-select {
       -webkit-appearance: none;
       appearance: none;
@@ -215,6 +249,10 @@
       transition: background-color 0.2s ease;
     }
     .tool-select:hover { background-color: var(--chip-bg-hover); }
+    body[data-mode="break"] .tool-select {
+      /* La flecha es un SVG con color fijo: en Descanso se cambia a la tinta índigo */
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232f2a4d' stroke-opacity='.6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    }
 
     .chip-btn {
       padding: 0.3rem 0.65rem;
@@ -867,11 +905,75 @@
       font-weight: 700;
       color: var(--ink-soft);
     }
+    .breed-since {
+      font-size: 0.58rem;
+      font-weight: 600;
+      color: var(--ink-soft);
+      opacity: 0.8;
+    }
 
     /* Pantallas bajas (móvil en horizontal): compactar la tarjeta */
     @media (max-height: 560px) {
       .timer-digits { font-size: 3rem; margin: 0.2rem 0 0.4rem; }
       .subtitle { display: none; }
+    }
+
+    /* Celular en horizontal: dos columnas para que todo quepa sin desplazarse.
+       Reloj a la izquierda; cabecera y mezclador a la derecha. En Zen, la columna
+       derecha se pliega (grid-template-columns se anima) y el reloj queda centrado. */
+    /* (Se prefijan con body para ganar a las clases de Tailwind del mismo elemento: flex, max-w-xl, py-*) */
+    @media (orientation: landscape) and (max-height: 560px) {
+      body .hud {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        grid-template-areas:
+          "main header"
+          "main footer";
+        column-gap: 0.75rem;
+        row-gap: 0.5rem;
+        max-width: 60rem;
+        transition:
+          grid-template-columns 0.6s var(--mood-ease),
+          column-gap 0.6s var(--mood-ease);
+      }
+      body.zen .hud {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 0fr);
+        column-gap: 0;
+      }
+      body .hud-header { grid-area: header; }
+      body .hud-main {
+        grid-area: main;
+        padding-top: 0;
+        padding-bottom: 0;
+      }
+      body .hud-footer {
+        grid-area: footer;
+        align-self: start;
+        max-height: 100%;
+        overflow-y: auto;             /* si el mezclador abierto no cabe, se desplaza dentro */
+        pointer-events: auto;
+        scrollbar-width: none;        /* se desplaza con el dedo, sin barra visible */
+      }
+      body .hud-footer::-webkit-scrollbar { display: none; }
+      body .channel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      body .timer-card { padding-top: 0.85rem; padding-bottom: 0.9rem; }
+      body .mixer { padding: 0.7rem 0.8rem; }
+      body .compact-hide { display: none; }
+      .toggle-row { padding-top: 0.4rem; padding-bottom: 0.4rem; }
+      .toast {                        /* bajo la tarjeta no hay sitio: arriba de la pantalla */
+        position: fixed;
+        top: 0.75rem;
+      }
+    }
+
+    /* Horizontal estrecho (p. ej. iPhone SE, 667×375): solo íconos y textos cortos */
+    @media (orientation: landscape) and (max-height: 560px) and (max-width: 760px) {
+      body .compact-narrow-hide { display: none; }
+      body .timer-card { padding-left: 1rem; padding-right: 1rem; }
+      .segmented-btn { font-size: 0.72rem; padding-left: 0.25rem; padding-right: 0.25rem; }
+      .tool-btn { padding: 0 0.55rem; }
+      .tool-select { padding-left: 0.6rem; padding-right: 1.5rem; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -890,27 +992,27 @@
   <canvas id="lakeCanvas" class="absolute inset-0 w-full h-full block cursor-pointer"></canvas>
 
   <!-- INTERFAZ FLOTANTE (HUD) -->
-  <div class="relative z-10 w-full h-full pointer-events-none flex flex-col justify-between p-3 sm:p-6 max-w-xl mx-auto">
+  <div class="hud relative z-10 w-full h-full pointer-events-none flex flex-col justify-between p-3 sm:p-6 max-w-xl mx-auto">
 
     <!-- BARRA SUPERIOR: Estado, Diario, Modo Zen y juegos del lago (se pliega en Modo Zen) -->
-    <div class="zen-collapse">
+    <div class="zen-collapse hud-header">
       <div>
         <header class="flex flex-col gap-2 pointer-events-auto">
           <div class="glass-panel flex items-center gap-2.5 pl-2.5 pr-2 py-2">
             <span class="mode-orb" id="modeEmoji" aria-hidden="true">🦆</span>
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-1.5">
-                <h1 class="font-display font-semibold text-[15px] sm:text-base leading-tight">PatoPomodoro</h1>
-                <span id="cycleCounterBadge" class="soft-badge">Ciclo #1</span>
+                <h1 class="font-display font-semibold text-[15px] sm:text-base leading-tight compact-narrow-hide">PatoPomodoro</h1>
+                <span id="cycleCounterBadge" class="soft-badge" title="Pomodoros completados hoy">🍅 0 hoy</span>
               </div>
               <p id="statusSubtitle" class="subtitle">Toca el agua para dar miguitas o a un pato para oír su ¡Cuack!</p>
             </div>
             <div class="flex items-center gap-1 shrink-0">
               <button id="btnJournal" type="button" class="tool-btn tool-btn-soft" title="Diario del Lago" aria-label="Abrir el Diario del Lago">
-                <span aria-hidden="true">📖</span><span class="hidden sm:inline">Diario</span>
+                <span aria-hidden="true">📖</span><span class="hidden sm:inline compact-narrow-hide">Diario</span>
               </button>
               <button id="btnZen" type="button" class="tool-btn tool-btn-soft" title="Modo Zen (Z)" aria-label="Modo Zen: dejar solo el reloj" aria-pressed="false">
-                <span aria-hidden="true">👁️</span><span class="hidden sm:inline">Zen</span>
+                <span aria-hidden="true">👁️</span><span class="hidden sm:inline compact-narrow-hide">Zen</span>
               </button>
             </div>
           </div>
@@ -931,13 +1033,14 @@
               <option value="sunsetGhibli">🌅 Atardecer</option>
               <option value="matchaMinimal">🍵 Matcha</option>
             </select>
+            <button id="btnFps" type="button" class="tool-btn tool-fps" title="Fluidez de la animación del lago (30 fps cuida la batería)" aria-label="Cambiar la fluidez de la animación">30 fps</button>
           </div>
         </header>
       </div>
     </div>
 
     <!-- CENTRO: TARJETA DEL TEMPORIZADOR POMODORO (en Modo Zen queda solo el reloj flotando) -->
-    <main class="my-auto flex flex-col items-center pointer-events-none py-3">
+    <main class="hud-main my-auto flex flex-col items-center pointer-events-none py-3">
       <div class="relative w-full max-w-sm">
         <section id="timerCard" class="glass-panel timer-card flex flex-col items-center text-center pointer-events-auto w-full px-5 py-4 sm:px-8 sm:py-6" aria-label="Temporizador">
 
@@ -975,7 +1078,7 @@
             <div>
               <!-- Controles de Tiempo Rápidos -->
               <div class="flex items-center justify-center gap-1.5 mt-3.5 mb-3 text-xs font-semibold">
-                <span class="muted mr-0.5">Duración <b id="durationLabel" class="font-display">25</b> min</span>
+                <span class="muted mr-0.5"><span class="compact-narrow-hide">Duración </span><b id="durationLabel" class="font-display">25</b> min</span>
                 <button data-adjust="-5" type="button" class="time-adj-btn chip-btn" aria-label="Restar 5 minutos">−5</button>
                 <button data-adjust="-1" type="button" class="time-adj-btn chip-btn" aria-label="Restar 1 minuto">−1</button>
                 <button data-adjust="1" type="button" class="time-adj-btn chip-btn" aria-label="Sumar 1 minuto">+1</button>
@@ -988,7 +1091,7 @@
                   <span aria-hidden="true">🔁</span>
                   <span class="flex flex-col leading-tight">
                     <span class="text-xs font-bold">Ciclo automático</span>
-                    <span class="muted text-[11px] font-semibold">Concentración ↔ Descanso sin parar</span>
+                    <span class="muted text-[11px] font-semibold compact-narrow-hide">Concentración ↔ Descanso sin parar</span>
                   </span>
                 </span>
                 <span class="switch">
@@ -1019,14 +1122,14 @@
     </main>
 
     <!-- BARRA INFERIOR: MEZCLADOR DE SONIDOS RELAJANTES (plegable y oculto en Modo Zen) -->
-    <div class="zen-collapse">
+    <div class="zen-collapse hud-footer">
       <div>
         <footer class="pointer-events-auto">
           <section id="mixerPanel" class="glass-panel mixer px-3.5 py-3 sm:px-5 sm:py-4" aria-label="Ambiente sonoro del lago">
             <div class="flex items-center justify-between gap-2">
               <button id="btnMixerToggle" type="button" class="mixer-toggle" aria-expanded="true" aria-controls="mixerBody">
                 <span aria-hidden="true">🎧</span>
-                <span class="mixer-title">Ambiente<span class="hidden sm:inline"> sonoro</span></span>
+                <span class="mixer-title compact-narrow-hide">Ambiente<span class="hidden sm:inline compact-hide"> sonoro</span></span>
                 <svg class="mixer-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
               </button>
               <div class="flex items-center gap-1.5">
@@ -1038,7 +1141,7 @@
             <!-- 4 Canales Independientes -->
             <div id="mixerBody" class="collapsible">
               <div>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3">
+                <div class="channel-grid grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3">
                   <!-- Canal 1: Agua -->
                   <div class="channel-card">
                     <div class="flex items-center justify-between gap-2">
@@ -1262,7 +1365,7 @@
       constructor(canvas, initialThemeKey = 'cozyDay') {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
-        this.theme = VISUAL_THEMES[initialThemeKey];
+        this.theme = VISUAL_THEMES[initialThemeKey] || VISUAL_THEMES.cozyDay;
       }
 
       setTheme(themeKey) {
@@ -1359,6 +1462,8 @@
       drawCrumb(crumb) {
         const { ctx } = this;
         ctx.save();
+        // Las migas que nadie come se hunden y se desvanecen (alpha lo calcula LakeWorld)
+        ctx.globalAlpha = Math.min(1, Math.max(0, crumb.alpha ?? 1));
         ctx.fillStyle = '#fde68a';
         ctx.beginPath();
         ctx.arc(crumb.x, crumb.y, crumb.size, 0, Math.PI * 2);
@@ -1438,7 +1543,7 @@
         ctx.closePath();
         ctx.fill();
 
-        // Ala principal (aletea rápido si vuela o se sacude)
+        // Ala principal (aletea rápido en vuelo; nadando queda plegada)
         const wingFlapY = isFlying ? Math.sin(timeSec * 32 + duck.seed) * 10 : 0;
         const wingAngle = isFlying ? -0.35 + Math.sin(timeSec * 32 + duck.seed) * 0.45 : -0.15;
         ctx.fillStyle = breed.wing;
@@ -1446,22 +1551,23 @@
         ctx.ellipse(-3, 4 - Math.abs(wingFlapY * 0.35), 11.5, 6.8, wingAngle, 0, Math.PI * 2);
         ctx.fill();
 
-        // Collar blanco si la raza lo incluye
         const dipOffset = duck.state === 'DIPPING' ? 7 : 0;
-        if (breed.neckRing) {
-          ctx.strokeStyle = breed.neckRing;
-          ctx.lineWidth = 2.6;
-          ctx.beginPath();
-          ctx.moveTo(6, -1 + dipOffset);
-          ctx.lineTo(17, 0 + dipOffset);
-          ctx.stroke();
-        }
 
         // Cabeza
         ctx.fillStyle = breed.head;
         ctx.beginPath();
         ctx.arc(12, -8 + dipOffset, 11, 0, Math.PI * 2);
         ctx.fill();
+
+        // Collar si la raza lo incluye: arco en la base de la cabeza, del lado del cuerpo.
+        // Va después de la cabeza; si se dibuja antes, el círculo de la cabeza lo tapa entero.
+        if (breed.neckRing) {
+          ctx.strokeStyle = breed.neckRing;
+          ctx.lineWidth = 2.6;
+          ctx.beginPath();
+          ctx.arc(12, -8 + dipOffset, 9.7, Math.PI * 0.4, Math.PI * 0.95);
+          ctx.stroke();
+        }
 
         // Pico (se abre en dos mitades cuando hace ¡Cuack!)
         ctx.fillStyle = breed.beak;
@@ -1528,7 +1634,11 @@
           // Burbujita cómic redondeada
           ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
           ctx.beginPath();
-          ctx.roundRect(bx, by, textWidth + 14, 20, 10);
+          if (ctx.roundRect) {
+            ctx.roundRect(bx, by, textWidth + 14, 20, 10);
+          } else {
+            ctx.rect(bx, by, textWidth + 14, 20); // Navegadores sin roundRect (iOS < 16)
+          }
           ctx.fill();
 
           ctx.fillStyle = '#0f172a';
@@ -1547,7 +1657,8 @@
         const pulse = 0.4 + 0.6 * Math.sin(timeSec * 3 + particle.seed);
         ctx.save();
         ctx.fillStyle = theme.particleColor;
-        ctx.globalAlpha = pulse;
+        // pulse va de -0.2 a 1; canvas ignora un globalAlpha negativo (dejaría 1 = destello)
+        ctx.globalAlpha = Math.max(0, pulse);
         ctx.beginPath();
         ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
         ctx.fill();
@@ -1557,8 +1668,8 @@
 
     /* ==========================================================================
        MÓDULO 2: MOTOR DE AUDIO PROCEDURAL MULTICAPA (Web Audio API)
-       Incluye síntesis acústica de "¡Cuack!" mediante barrido de doble formante
-       nasal ("cua-ak") + campana zen para cambios de ciclo.
+       Incluye síntesis de "¡Cuack!" estilo Stardew Valley (voz áspera con
+       modulación AM + filtro de pico) + campana zen para cambios de ciclo.
        ========================================================================== */
     class RelaxingAudioMixer {
       constructor() {
@@ -1566,10 +1677,10 @@
         this.isInitialized = false;
         this.isMutedAll = false;
         this.onAmbientQuackCallback = null;
-        this.quackBuffer = null;
-        // Si descargas un sonido real (ej. 'quack.mp3' en la misma carpeta), 
-        // solo descomenta la línea de abajo al subirlo a GitHub Pages:
-        // this.loadRealQuackSample('./quack.mp3');
+        this.quackBuffer = null;      // Cuack real ya decodificado (opcional)
+        this.pendingQuackData = null; // Cuack real descargado, pendiente de decodificar
+        // Para usar un sonido real (ej. 'quack.mp3' junto a index.html), llama desde el
+        // orquestador a audio.loadRealQuackSample('./quack.mp3').
 
         this.channels = {
           water: { enabled: true, volume: 0.45, gainNode: null },
@@ -1583,8 +1694,9 @@
 
       initIfNeeded() {
         if (this.isInitialized) {
-          if (this.ctx && this.ctx.state === 'suspended') {
-            this.ctx.resume();
+          // 'suspended' (autoplay o segundo plano) o 'interrupted' (iOS tras una llamada o alarma)
+          if (this.ctx.state !== 'running' && this.ctx.state !== 'closed') {
+            this.ctx.resume().catch(() => {});
           }
           return;
         }
@@ -1601,24 +1713,12 @@
           g.connect(this.masterGain);
         });
 
-        // Curva de saturación suave para darle textura nasal realista al "¡Cuack!"
-        this.quackShaperCurve = this.makeNasalCurve(120);
-
         this.setupWaterStream();
         this.setupForestBreeze();
         this.setupLoopTimers();
         this.updateAllGains();
         this.isInitialized = true;
-      }
-
-      makeNasalCurve(amount = 100) {
-        const nSamples = 1024;
-        const curve = new Float32Array(nSamples);
-        for (let i = 0; i < nSamples; i++) {
-          const x = (i * 2) / nSamples - 1;
-          curve[i] = ((3 + amount) * x * 20 * (Math.PI / 180)) / (Math.PI + amount * Math.abs(x));
-        }
-        return curve;
+        this.decodePendingQuack();
       }
 
       updateAllGains() {
@@ -1714,84 +1814,6 @@
 
         breezeSource.start(0);
         lfo.start(0);
-      }
-
-      /* ------------------------------------------------------------------------
-         3. SINTETIZADOR DE "¡CUACK!" CON DOBLE FORMANTE VOCAL ("CUA-AK")
-         Modela las cuerdas vocales ricas en armónicos (sawtooth doble) pasando
-         por dos filtros resonantes que abren y cierran el pico ("u-a-k").
-         ------------------------------------------------------------------------ */
-      playSingleQuackSyllable(startTime, isBaby = false, duration = 0.19) {
-        const osc1 = this.ctx.createOscillator();
-        const osc2 = this.ctx.createOscillator();
-        const shaper = this.ctx.createWaveShaper();
-        const formant1 = this.ctx.createBiquadFilter();
-        const formant2 = this.ctx.createBiquadFilter();
-        const syllableEnv = this.ctx.createGain();
-
-        // Frecuencia base del pato (adulto ~285Hz, bebé ~440Hz)
-        const basePitch = (isBaby ? 430 : 280) * (0.94 + Math.random() * 0.12);
-        osc1.type = 'sawtooth';
-        osc2.type = 'sawtooth';
-
-        // Contorno de tono: sube rápido en "CUA" y cae al cerrar el pico en "ACK"
-        osc1.frequency.setValueAtTime(basePitch * 0.88, startTime);
-        osc1.frequency.linearRampToValueAtTime(basePitch * 1.18, startTime + duration * 0.28);
-        osc1.frequency.exponentialRampToValueAtTime(basePitch * 0.76, startTime + duration);
-
-        // Segundo oscilador ligeramente desafinado para textura orgánica de pato
-        osc2.frequency.setValueAtTime(basePitch * 0.90 + 5, startTime);
-        osc2.frequency.linearRampToValueAtTime(basePitch * 1.20 + 5, startTime + duration * 0.28);
-        osc2.frequency.exponentialRampToValueAtTime(basePitch * 0.78 + 5, startTime + duration);
-
-        shaper.curve = this.quackShaperCurve;
-
-        // Formante 1 (apertura bucal "u" -> "a" -> cierre)
-        formant1.type = 'bandpass';
-        formant1.Q.setValueAtTime(4.2, startTime);
-        formant1.frequency.setValueAtTime(520, startTime);
-        formant1.frequency.exponentialRampToValueAtTime(1250, startTime + duration * 0.35);
-        formant1.frequency.exponentialRampToValueAtTime(680, startTime + duration);
-
-        // Formante 2 (resonancia nasal característica del pato)
-        formant2.type = 'bandpass';
-        formant2.Q.setValueAtTime(5.0, startTime);
-        formant2.frequency.setValueAtTime(1350, startTime);
-        formant2.frequency.exponentialRampToValueAtTime(2450, startTime + duration * 0.35);
-        formant2.frequency.exponentialRampToValueAtTime(1500, startTime + duration);
-
-        // Envolvente de amplitud percusiva y clara
-        syllableEnv.gain.setValueAtTime(0.001, startTime);
-        syllableEnv.gain.linearRampToValueAtTime(0.28, startTime + 0.018);
-        syllableEnv.gain.setValueAtTime(0.26, startTime + duration * 0.45);
-        syllableEnv.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-
-        osc1.connect(shaper);
-        osc2.connect(shaper);
-        shaper.connect(formant1);
-        shaper.connect(formant2);
-        formant1.connect(syllableEnv);
-        formant2.connect(syllableEnv);
-        syllableEnv.connect(this.channels.ducks.gainNode);
-
-        osc1.start(startTime);
-        osc2.start(startTime);
-        osc1.stop(startTime + duration + 0.02);
-        osc2.stop(startTime + duration + 0.02);
-      }
-
-      triggerDuckQuack(isBaby = false, forceDouble = null) {
-        this.initIfNeeded();
-        if (!this.channels.ducks.enabled || this.isMutedAll) return false;
-
-        const now = this.ctx.currentTime;
-        const doDouble = forceDouble !== null ? forceDouble : (Math.random() < 0.48);
-
-        this.playSingleQuackSyllable(now, isBaby, 0.18);
-        if (doDouble) {
-          this.playSingleQuackSyllable(now + 0.21, isBaby, 0.21);
-        }
-        return doDouble;
       }
 
       // Sonido suave de aleteo / chapoteo al aterrizar o despegar
@@ -1918,49 +1940,62 @@
         }, 4200);
       }
 
-      // 2. Nuevo cargador de sample real con variación tipo Stardew Valley:
+      // Cuack real opcional. Solo descarga el archivo: se decodifica en initIfNeeded (al primer
+      // toque) para no crear el AudioContext antes de tiempo. Si falla (archivo ausente o
+      // página abierta con file://), se usa el sintetizador estilo Stardew.
       async loadRealQuackSample(url) {
         try {
-          if (!this.ctx) this.init();
           const response = await fetch(url);
-          const arrayBuffer = await response.arrayBuffer();
-          this.quackBuffer = await this.ctx.decodeAudioData(arrayBuffer);
-          console.log("🦆 Sample real de Cuack cargado con éxito");
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          this.pendingQuackData = await response.arrayBuffer();
+          if (this.isInitialized) this.decodePendingQuack();
         } catch (e) {
-          console.warn("Usando sintetizador DSP Stardew como respaldo:", e);
+          console.warn('Usando el sintetizador estilo Stardew como respaldo:', e);
         }
       }
 
-      triggerQuack(optionsOrPitch = 1.0, forceAudible = false) {
+      decodePendingQuack() {
+        const data = this.pendingQuackData;
+        if (!data) return;
+        this.pendingQuackData = null;
+        this.ctx.decodeAudioData(data)
+          .then(buffer => {
+            this.quackBuffer = buffer;
+            console.log('🦆 Sample real de Cuack cargado con éxito');
+          })
+          .catch(e => console.warn('Usando el sintetizador estilo Stardew como respaldo:', e));
+      }
+
+      // Devuelve si el cuack fue doble ("¡Cuack, cuack!") para que la burbuja coincida.
+      // pitchMultiplier > 1 = más agudo (los bebés usan 1.35).
+      triggerQuack(pitchMultiplier = 1.0) {
         this.initIfNeeded();
 
-        let pitchMultiplier = 1.0;
-        let force = forceAudible;
-
-        if (typeof optionsOrPitch === 'number') {
-          pitchMultiplier = optionsOrPitch;
-        } else if (optionsOrPitch && typeof optionsOrPitch === 'object') {
-          pitchMultiplier = optionsOrPitch.pitch || 1.0;
-          force = Boolean(optionsOrPitch.force);
-        }
-
-        const vol = force ? Math.max(this.channels.ducks.volume, 0.55) : this.channels.ducks.volume;
-        if (vol <= 0.01 || !this.channels.ducks.enabled || this.isMutedAll) return;
+        // Se decide antes de comprobar el silencio: con el sonido apagado, las burbujas siguen igual
+        const isDouble = Math.random() < 0.45;
+        const ducksChannel = this.channels.ducks;
+        if (ducksChannel.volume <= 0.01 || !ducksChannel.enabled || this.isMutedAll) return isDouble;
 
         // MODO A: Si hay un archivo .mp3/.wav real cargado, usar técnica Stardew Valley (Pitch Shifting)
         if (this.quackBuffer) {
-          const source = this.ctx.createBufferSource();
-          source.buffer = this.quackBuffer;
-          // Variación orgánica entre 0.90x y 1.12x + el multiplicador del tipo de pato (bebé vs adulto)
-          source.playbackRate.value = (0.92 + Math.random() * 0.18) * pitchMultiplier;
+          // Variación orgánica entre 0.92x y 1.10x + el multiplicador del tipo de pato (bebé vs adulto)
+          const rate = (0.92 + Math.random() * 0.18) * pitchMultiplier;
+          const playSample = (delayOffset, playbackRate) => {
+            const source = this.ctx.createBufferSource();
+            source.buffer = this.quackBuffer;
+            source.playbackRate.value = playbackRate;
 
-          const gain = this.ctx.createGain();
-          gain.gain.value = vol * 0.9;
+            const gain = this.ctx.createGain();
+            gain.gain.value = 0.9;
 
-          source.connect(gain);
-          gain.connect(this.ctx.destination);
-          source.start();
-          return;
+            // Pasa por el canal de patos: respeta su volumen, el apagado y el silencio general
+            source.connect(gain);
+            gain.connect(ducksChannel.gainNode);
+            source.start(this.ctx.currentTime + delayOffset);
+          };
+          playSample(0, rate);
+          if (isDouble) playSample(0.19, rate * 1.06);
+          return isDouble;
         }
 
         // MODO B: Síntesis DSP estilo Stardew Valley (Siringe con Flutter AM + Formante Nasal)
@@ -2013,9 +2048,10 @@
           bodyFilter.Q.value = 2.0;
           bodyFilter.gain.value = 8;
 
-          // 6. Envolvente de amplitud percusiva y corta (Stardew style)
+          // 6. Envolvente de amplitud percusiva y corta (Stardew style).
+          //    El volumen del canal lo aplica su gainNode; aquí solo va la forma del sonido.
           const env = this.ctx.createGain();
-          const peak = Math.min(vol * 0.48, 0.65);
+          const peak = 0.48;
           env.gain.setValueAtTime(0.001, now);
           env.gain.linearRampToValueAtTime(peak, now + 0.015);
           env.gain.setValueAtTime(peak * 0.85, now + duration * 0.35);
@@ -2027,7 +2063,7 @@
           noise.connect(billFilter);
           billFilter.connect(bodyFilter);
           bodyFilter.connect(env);
-          env.connect(this.ctx.destination);
+          env.connect(ducksChannel.gainNode);
 
           osc.start(now);
           flutterOsc.start(now);
@@ -2042,10 +2078,11 @@
         // Primer "¡Cuack!" corto y expresivo (160ms)
         playSingleSyllable(0, 0.16, basePitch);
 
-        // 45% de probabilidad de segundo "¡Cuack!" rápido
-        if (Math.random() < 0.45) {
+        // 45% de probabilidad de segundo "¡Cuack!" rápido (decidido arriba en isDouble)
+        if (isDouble) {
           playSingleSyllable(0.19, 0.14, basePitch * 1.06);
         }
+        return isDouble;
       }
     }
 
@@ -2053,6 +2090,15 @@
        MÓDULO 3: SIMULACIÓN FÍSICA DEL LAGO, COLORES Y VUELO DE PATOS
        Soporta estados: SWIMMING | DIPPING | SLEEPING | LANDING | TAKING_OFF
        ========================================================================== */
+    // Zona donde nadan los patos: más allá de estos márgenes giran de vuelta.
+    // Las migas se colocan dentro de esta misma zona para que siempre sean alcanzables.
+    const LAKE_BOUNDS = { side: 70, top: 130, bottom: 150 };
+    const LANDING_SPEED = 145;      // px/s de un pato que llega volando
+    const MAX_DUCKS_ON_WATER = 12;  // si se supera, el más antiguo se despide volando
+    const MAX_CRUMBS = 60;
+    const CRUMB_LIFETIME = 15;      // segundos antes de que una miga empiece a hundirse
+    const CRUMB_SINK_TIME = 2;      // segundos que tarda en desvanecerse
+
     class LakeWorld {
       constructor(canvas, renderer, audioMixer, onDuckCountChange) {
         this.canvas = canvas;
@@ -2082,11 +2128,48 @@
 
       resize() {
         const dpr = window.devicePixelRatio || 1;
+        const oldWidth = this.width;
+        const oldHeight = this.height;
         this.width = window.innerWidth;
         this.height = window.innerHeight;
         this.canvas.width = this.width * dpr;
         this.canvas.height = this.height * dpr;
         this.renderer.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // Al girar el celular, todo se reubica en proporción (si no, nenúfares y patos
+        // quedarían fuera de la pantalla). En la primera llamada aún no hay tamaño previo.
+        if (oldWidth && oldHeight) {
+          this.scaleEntities(this.width / oldWidth, this.height / oldHeight);
+        }
+      }
+
+      scaleEntities(sx, sy) {
+        if (sx === 1 && sy === 1) return;
+        const scalePoint = (p) => {
+          p.x *= sx;
+          p.y *= sy;
+        };
+        this.lilyPads.forEach(scalePoint);
+        this.ripples.forEach(scalePoint);
+        this.crumbs.forEach(scalePoint);
+        this.fireflies.forEach(scalePoint);
+        for (const duck of this.ducks) {
+          scalePoint(duck);
+          if (duck.landingTarget) scalePoint(duck.landingTarget);
+        }
+      }
+
+      // Punto más cercano dentro de la zona donde nadan los patos (con holgura de 12 px)
+      clampToSwimZone(x, y) {
+        const inset = 12;
+        const minX = LAKE_BOUNDS.side + inset;
+        const maxX = this.width - LAKE_BOUNDS.side - inset;
+        const minY = LAKE_BOUNDS.top + inset;
+        const maxY = this.height - LAKE_BOUNDS.bottom - inset;
+        return {
+          x: minX < maxX ? Math.min(maxX, Math.max(minX, x)) : this.width / 2,
+          y: minY < maxY ? Math.min(maxY, Math.max(minY, y)) : this.height / 2
+        };
       }
 
       getRandomBreedKey() {
@@ -2151,7 +2234,7 @@
 
       makeDuckQuack(duck) {
         if (!duck || duck.state === 'SLEEPING') return;
-        const isDouble = this.audio.triggerQuack();
+        const isDouble = this.audio.triggerQuack(duck.isBaby ? 1.35 : 1); // los bebés, más agudos
         duck.quackTimer = isDouble ? 0.62 : 0.42;
         duck.quackText = isDouble ? '¡Cuack, cuack!' : '¡Cuack!';
         this.addRipple(duck.x, duck.y, 34);
@@ -2164,17 +2247,32 @@
         this.makeDuckQuack(chosen);
       }
 
-      // Nace un patito en el agua o llega volando
+      // Nace un patito junto a una "madre" que esté en el agua y dentro de la pantalla
       spawnBabyDuckling() {
-        const mother = this.ducks[0];
+        const mother = this.ducks.find(d => d.z === 0 && d.state !== 'TAKING_OFF'
+          && d.x >= 0 && d.x <= this.width && d.y >= 0 && d.y <= this.height);
         const x = mother ? mother.x - 30 : this.width * 0.5;
         const y = mother ? mother.y + 20 : this.height * 0.5;
-        const baby = this.createDuck(x, y, Math.random() < 0.65, this.getRandomBreedKey());
+        const baby = this.createDuck(x, y, true, this.getRandomBreedKey());
         baby.heartTimer = 1.0;
         this.ducks.push(baby);
         this.makeDuckQuack(baby);
+        this.enforceDuckLimit();
         if (this.onDuckCountChange) this.onDuckCountChange(this.ducks.length);
         return this.ducks.length;
+      }
+
+      // Si hay más de MAX_DUCKS_ON_WATER patos (sin contar los que ya se van), el más antiguo
+      // que esté en el agua se despide volando. El array está en orden de llegada.
+      enforceDuckLimit() {
+        let staying = this.ducks.filter(d => d.state !== 'TAKING_OFF').length;
+        while (staying > MAX_DUCKS_ON_WATER) {
+          const oldest = this.ducks.find(d =>
+            d.state === 'SWIMMING' || d.state === 'DIPPING' || d.state === 'SLEEPING');
+          if (!oldest) break;
+          this.sendDuckFlying(oldest);
+          staying -= 1;
+        }
       }
 
       // Hace que un nuevo pato colorido llegue volando desde el cielo y acuatice en el lago
@@ -2192,7 +2290,13 @@
         duck.angle = Math.atan2(targetY - startY, targetX - startX);
         duck.targetAngle = duck.angle;
 
+        // Ritmo de descenso para tocar el agua justo al llegar (a 24 px del destino). Con el
+        // ritmo fijo de 78 px/s, en pantallas angostas el viaje era corto y el pato caía de golpe.
+        const travelTime = Math.max(0.4, (Math.hypot(targetX - startX, targetY - startY) - 24) / LANDING_SPEED);
+        duck.descentRate = Math.max(78, duck.z / travelTime);
+
         this.ducks.push(duck);
+        this.enforceDuckLimit();
         if (this.onDuckCountChange) this.onDuckCountChange(this.ducks.length);
         return duck;
       }
@@ -2204,13 +2308,16 @@
         if (candidates.length <= 2) {
           return this.spawnFlyingDuck();
         }
-        const flyer = candidates[candidates.length - 1];
+        return this.sendDuckFlying(candidates[candidates.length - 1]);
+      }
+
+      sendDuckFlying(flyer) {
         flyer.state = 'TAKING_OFF';
         flyer.z = 0;
         const flyRight = Math.random() < 0.5;
         flyer.angle = flyRight ? -0.15 : Math.PI + 0.15;
         flyer.targetAngle = flyer.angle;
-        this.makeDuckQuack(flyer);
+        if (!this.isBreakMode) this.makeDuckQuack(flyer); // en Descanso se va en silencio
         this.audio.triggerWingSplash();
         return flyer;
       }
@@ -2243,24 +2350,34 @@
           const clickX = e.clientX - rect.left;
           const clickY = e.clientY - rect.top;
 
-          // ¿Tocó un patito?
-          for (const duck of this.ducks) {
+          // ¿Tocó un patito? Del que se ve delante (dibujado encima) al de atrás
+          const frontToBack = [...this.ducks].sort((a, b) => (b.y + b.z * 2) - (a.y + a.z * 2));
+          for (const duck of frontToBack) {
             const dist = Math.hypot(duck.x - clickX, (duck.y - duck.z) - clickY);
-            if (dist < 34) {
+            if (dist < (duck.isBaby ? 26 : 34)) {
               duck.heartTimer = 1.0;
               this.makeDuckQuack(duck);
               return;
             }
           }
 
-          // Si tocó el agua: lanzar miguitas de comida y crear onda
+          // Si tocó el agua: onda donde tocó y miguitas dentro de la zona donde nadan los patos
           this.addRipple(clickX, clickY, 55);
           for (let i = 0; i < 3; i++) {
+            const pos = this.clampToSwimZone(
+              clickX + (Math.random() - 0.5) * 22,
+              clickY + (Math.random() - 0.5) * 22
+            );
             this.crumbs.push({
-              x: clickX + (Math.random() - 0.5) * 22,
-              y: clickY + (Math.random() - 0.5) * 22,
-              size: 2.5 + Math.random() * 1.5
+              x: pos.x,
+              y: pos.y,
+              size: 2.5 + Math.random() * 1.5,
+              age: 0,
+              alpha: 1
             });
+          }
+          if (this.crumbs.length > MAX_CRUMBS) {
+            this.crumbs.splice(0, this.crumbs.length - MAX_CRUMBS);
           }
         });
       }
@@ -2284,8 +2401,21 @@
           const r = this.ripples[i];
           r.radius += dt * 24;
           r.alpha -= dt * 0.45;
+          // Las ondas pequeñas llegan a su radio máximo antes de desvanecerse: se apagan a la par
+          const growth = (r.radius - 4) / (r.maxRadius - 4);
+          r.alpha = Math.min(r.alpha, 0.75 * (1 - growth));
           if (r.alpha <= 0 || r.radius >= r.maxRadius) {
             this.ripples.splice(i, 1);
+          }
+        }
+
+        // Migas que nadie come: a los CRUMB_LIFETIME s se hunden poco a poco y desaparecen
+        for (let i = this.crumbs.length - 1; i >= 0; i--) {
+          const c = this.crumbs[i];
+          c.age += dt;
+          c.alpha = 1 - Math.max(0, c.age - CRUMB_LIFETIME) / CRUMB_SINK_TIME;
+          if (c.alpha <= 0) {
+            this.crumbs.splice(i, 1);
           }
         }
 
@@ -2307,12 +2437,11 @@
             const dist = Math.hypot(tx - duck.x, ty - duck.y);
             duck.angle = Math.atan2(ty - duck.y, tx - duck.x);
 
-            const flySpeed = 145;
-            duck.x += Math.cos(duck.angle) * flySpeed * dt;
-            duck.y += Math.sin(duck.angle) * flySpeed * dt;
+            duck.x += Math.cos(duck.angle) * LANDING_SPEED * dt;
+            duck.y += Math.sin(duck.angle) * LANDING_SPEED * dt;
 
-            // Descenso gradual proporcional a la distancia al punto de acuatizaje
-            duck.z = Math.max(0, duck.z - dt * 78);
+            // Descenso gradual: descentRate se calculó para tocar el agua justo al llegar
+            duck.z = Math.max(0, duck.z - dt * (duck.descentRate || 78));
 
             if (dist < 24 || duck.z <= 0) {
               duck.z = 0;
@@ -2402,12 +2531,11 @@
             }
           }
 
-          // Mantener dentro del lago
-          const margin = 70;
-          if (duck.x < margin) duck.targetAngle = 0;
-          if (duck.x > this.width - margin) duck.targetAngle = Math.PI;
-          if (duck.y < margin + 60) duck.targetAngle = Math.PI * 0.5;
-          if (duck.y > this.height - margin - 80) duck.targetAngle = -Math.PI * 0.5;
+          // Mantener dentro del lago (la misma zona en la que caen las migas)
+          if (duck.x < LAKE_BOUNDS.side) duck.targetAngle = 0;
+          if (duck.x > this.width - LAKE_BOUNDS.side) duck.targetAngle = Math.PI;
+          if (duck.y < LAKE_BOUNDS.top) duck.targetAngle = Math.PI * 0.5;
+          if (duck.y > this.height - LAKE_BOUNDS.bottom) duck.targetAngle = -Math.PI * 0.5;
 
           const diff = Math.atan2(
             Math.sin(duck.targetAngle - duck.angle),
@@ -2477,9 +2605,18 @@
         this.targetTimestamp = null;
         this.intervalId = null;
         this.wakeLock = null;
+        this.wakeLockRequestId = 0;
 
         this.onTick = onTick;
         this.onPhaseChange = onPhaseChange;
+        this.onCatchUpPause = null; // aviso opcional: la fase siguiente también pasó mientras no estaba
+
+        // El navegador suelta el Wake Lock al ocultar la página: al volver, se pide de nuevo
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible' && this.isRunning) {
+            this.requestWakeLock();
+          }
+        });
       }
 
       setAutoTransition(enabled) {
@@ -2496,33 +2633,53 @@
         }
       }
 
+      // Cambia la duración favorita del modo actual. Si el reloj corre, también la fase en curso
+      // (sin dejar nunca menos de 1 minuto, ni alargar una fase a la que le queda menos).
       adjustMinutes(deltaMinutes) {
         const currentMins = Math.round(this.durations[this.mode] / 60);
         const nextMins = Math.min(120, Math.max(1, currentMins + deltaMinutes));
         this.durations[this.mode] = nextMins * 60;
-        if (!this.isRunning) {
+        if (this.isRunning) {
+          const appliedMs = (nextMins - currentMins) * 60 * 1000;
+          const floor = Math.min(this.targetTimestamp, Date.now() + 60 * 1000);
+          this.targetTimestamp = Math.max(this.targetTimestamp + appliedMs, floor);
+          this.remainingSec = Math.max(0, Math.ceil((this.targetTimestamp - Date.now()) / 1000));
+        } else {
           this.remainingSec = this.durations[this.mode];
-          this.onTick(this.remainingSec, this.mode, this.isRunning, this.completedWorkCycles);
         }
+        this.onTick(this.remainingSec, this.mode, this.isRunning, this.completedWorkCycles);
       }
 
       async requestWakeLock() {
-        if ('wakeLock' in navigator) {
-          try {
-            this.wakeLock = await navigator.wakeLock.request('screen');
-          } catch (_) {}
-        }
+        if (!('wakeLock' in navigator) || this.wakeLock) return;
+        const requestId = ++this.wakeLockRequestId;
+        try {
+          const lock = await navigator.wakeLock.request('screen');
+          // Si mientras tanto se pausó (o hubo otro pedido), este candado ya no hace falta
+          if (!this.isRunning || requestId !== this.wakeLockRequestId) {
+            lock.release().catch(() => {});
+            return;
+          }
+          lock.addEventListener('release', () => {
+            if (this.wakeLock === lock) this.wakeLock = null;
+          });
+          this.wakeLock = lock;
+        } catch (_) {}
       }
 
       releaseWakeLock() {
+        this.wakeLockRequestId += 1; // invalida cualquier pedido que siga en curso
         if (this.wakeLock) {
           this.wakeLock.release().catch(() => {});
           this.wakeLock = null;
         }
       }
 
-      completeCurrentPhase() {
+      // natural = la fase llegó a 0 sola (no con ⏭). Entonces la siguiente cuenta desde el momento
+      // exacto en que terminó, aunque la app estuviera en segundo plano o el celular bloqueado.
+      completeCurrentPhase(natural = false) {
         const finishedMode = this.mode;
+        const phaseEndedAt = natural && this.targetTimestamp ? this.targetTimestamp : Date.now();
         if (finishedMode === 'work') {
           this.completedWorkCycles += 1;
         }
@@ -2532,14 +2689,29 @@
           this.onPhaseChange(finishedMode, nextMode, this.completedWorkCycles);
         }
 
-        // Cambiar al siguiente modo y arrancar automáticamente si autoTransition está activo
-        this.setMode(nextMode, this.autoTransition);
+        if (!this.autoTransition) {
+          this.setMode(nextMode, false);
+          return;
+        }
+
+        const nextTarget = phaseEndedAt + this.durations[nextMode] * 1000;
+        if (nextTarget > Date.now()) {
+          this.setMode(nextMode, false);
+          this.start(nextTarget);
+        } else {
+          // La fase siguiente también pasó mientras no estaba: espera en pausa al inicio de
+          // la próxima Concentración, sin sumar pomodoros que no hizo
+          this.setMode('work', false);
+          if (this.onCatchUpPause) this.onCatchUpPause();
+        }
       }
 
-      start() {
+      // targetTimestamp opcional: para que la fase termine a una hora ya calculada
+      start(targetTimestamp = null) {
         if (this.isRunning) return;
         this.isRunning = true;
-        this.targetTimestamp = Date.now() + this.remainingSec * 1000;
+        this.targetTimestamp = targetTimestamp ?? Date.now() + this.remainingSec * 1000;
+        this.remainingSec = Math.max(0, Math.ceil((this.targetTimestamp - Date.now()) / 1000));
         this.requestWakeLock();
 
         this.intervalId = setInterval(() => {
@@ -2548,7 +2720,7 @@
           this.onTick(this.remainingSec, this.mode, this.isRunning, this.completedWorkCycles);
 
           if (this.remainingSec <= 0) {
-            this.completeCurrentPhase();
+            this.completeCurrentPhase(true);
           }
         }, 250);
 
@@ -2577,13 +2749,30 @@
        Recuerda la configuración favorita y las estadísticas cozy: pomodoros de
        hoy, minutos de concentración, patitos criados y razas coleccionadas.
        Si localStorage no está disponible (modo privado), todo sigue en memoria.
+       Con la app abierta en dos sitios, las estadísticas se suman (no se pisan).
        ========================================================================== */
     class LakeJournalStore {
       constructor(storageKey = 'patopomodoro:v1') {
         this.storageKey = storageKey;
         this.saveTimer = null;
         this.saveDueAt = 0;
-        this.data = this.load();
+        this.pending = LakeJournalStore.emptyPending(); // estadísticas de esta pestaña sin guardar
+        this.onExternalChange = null;                    // aviso: otra pestaña guardó datos
+        this.data = this.load() || LakeJournalStore.defaults();
+
+        // Otra pestaña guardó: recargar sus datos y volver a sumar lo propio aún sin guardar
+        window.addEventListener('storage', (e) => {
+          if (e.key !== this.storageKey && e.key !== null) return;
+          const fresh = this.load();
+          if (!fresh) return;
+          this.applyPending(fresh.stats);
+          this.replaceData(fresh);
+          if (this.onExternalChange) this.onExternalChange();
+        });
+      }
+
+      static emptyPending() {
+        return { focusSecondsByDay: {}, pomodorosByDay: {}, ducklingsRaised: 0, breeds: {} };
       }
 
       // Clave de día en hora local (YYYY-MM-DD) para que "hoy" coincida con su reloj
@@ -2602,6 +2791,8 @@
             theme: 'cozyDay',
             autoCycle: true,
             mixerOpen: true,
+            muted: false,
+            fps: 30,
             channels: {
               water: { enabled: true, volume: 0.45 },
               ducks: { enabled: true, volume: 0.65 },
@@ -2618,12 +2809,19 @@
         };
       }
 
-      // Fusiona lo guardado con los valores por defecto, validando cada campo
+      // Fusiona lo guardado con los valores por defecto, validando cada campo.
+      // Devuelve null si localStorage no se puede leer (bloqueado o modo privado).
       load() {
+        let raw;
+        try {
+          raw = localStorage.getItem(this.storageKey);
+        } catch (_) {
+          return null;
+        }
         const data = LakeJournalStore.defaults();
         let saved = null;
         try {
-          saved = JSON.parse(localStorage.getItem(this.storageKey));
+          saved = JSON.parse(raw);
         } catch (_) {}
         if (!saved || typeof saved !== 'object') return data;
 
@@ -2635,6 +2833,8 @@
         if (VISUAL_THEMES[s.theme]) data.settings.theme = s.theme;
         if (typeof s.autoCycle === 'boolean') data.settings.autoCycle = s.autoCycle;
         if (typeof s.mixerOpen === 'boolean') data.settings.mixerOpen = s.mixerOpen;
+        if (typeof s.muted === 'boolean') data.settings.muted = s.muted;
+        if (s.fps === 30 || s.fps === 60) data.settings.fps = s.fps;
         Object.keys(data.settings.channels).forEach(key => {
           const ch = (s.channels || {})[key] || {};
           if (typeof ch.enabled === 'boolean') data.settings.channels[key].enabled = ch.enabled;
@@ -2669,12 +2869,43 @@
         return data;
       }
 
+      // Relee lo guardado (quizá por otra pestaña) y le suma lo propio, en vez de pisarlo.
+      // Los ajustes se resuelven con "gana el último que escribe".
       save() {
         clearTimeout(this.saveTimer);
         this.saveTimer = null;
+        const stored = this.load();
+        if (!stored) return; // sin localStorage: todo sigue en memoria
+        stored.settings = this.data.settings;
+        this.applyPending(stored.stats);
+        this.replaceData(stored);
         try {
           localStorage.setItem(this.storageKey, JSON.stringify(this.data));
+          this.pending = LakeJournalStore.emptyPending(); // solo si se guardó de verdad
         } catch (_) {}
+      }
+
+      applyPending(stats) {
+        const p = this.pending;
+        const addByDay = (target, source) => {
+          Object.entries(source).forEach(([day, value]) => {
+            target[day] = (target[day] || 0) + value;
+          });
+        };
+        addByDay(stats.focusSecondsByDay, p.focusSecondsByDay);
+        addByDay(stats.pomodorosByDay, p.pomodorosByDay);
+        stats.ducklingsRaised += p.ducklingsRaised;
+        Object.entries(p.breeds).forEach(([key, b]) => {
+          if (!stats.breeds[key]) stats.breeds[key] = { visits: 0, firstSeen: b.firstSeen };
+          stats.breeds[key].visits += b.visits;
+        });
+      }
+
+      // Sustituye los datos en memoria conservando el mismo objeto de ajustes
+      replaceData(fresh) {
+        Object.assign(this.data.settings, fresh.settings);
+        this.data.stats = fresh.stats;
+        this.data.version = fresh.version;
       }
 
       // Agrupa escrituras: si ya hay un guardado pendiente que llega antes, no se reprograma
@@ -2707,22 +2938,26 @@
         this.scheduleSave();
       }
 
+      // Suma a "hoy" en los datos en memoria y en lo pendiente de guardar
+      addToday(field, amount) {
+        const today = LakeJournalStore.dateKey();
+        this.data.stats[field][today] = (this.data.stats[field][today] || 0) + amount;
+        this.pending[field][today] = (this.pending[field][today] || 0) + amount;
+      }
+
       addFocusSeconds(seconds) {
         if (!(seconds > 0)) return;
-        const map = this.data.stats.focusSecondsByDay;
-        const today = LakeJournalStore.dateKey();
-        map[today] = (map[today] || 0) + seconds;
+        this.addToday('focusSecondsByDay', seconds);
         this.scheduleSave(5000);
       }
 
       // Un pomodoro completo = +1 en el día de hoy y +1 patito criado (devuelve los de hoy)
       recordCompletedPomodoro() {
-        const map = this.data.stats.pomodorosByDay;
-        const today = LakeJournalStore.dateKey();
-        map[today] = (map[today] || 0) + 1;
+        this.addToday('pomodorosByDay', 1);
         this.data.stats.ducklingsRaised += 1;
+        this.pending.ducklingsRaised += 1;
         this.save();
-        return map[today];
+        return this.todayPomodoros();
       }
 
       // Devuelve true si es la primera vez que esta raza aparece en el lago
@@ -2733,8 +2968,15 @@
         if (isNew) {
           breeds[breedKey] = { visits: 0, firstSeen: LakeJournalStore.dateKey() };
         }
-        if (countVisit) breeds[breedKey].visits += 1;
-        if (isNew || countVisit) this.scheduleSave();
+        if (isNew || countVisit) {
+          const pendingBreed = this.pending.breeds[breedKey]
+            || (this.pending.breeds[breedKey] = { visits: 0, firstSeen: breeds[breedKey].firstSeen });
+          if (countVisit) {
+            breeds[breedKey].visits += 1;
+            pendingBreed.visits += 1;
+          }
+          this.scheduleSave();
+        }
         return isNew;
       }
 
@@ -2773,7 +3015,8 @@
           key,
           name: DUCK_BREEDS[key].name,
           discovered: Boolean(breeds[key]),
-          visits: breeds[key] ? breeds[key].visits : 0
+          visits: breeds[key] ? breeds[key].visits : 0,
+          firstSeen: breeds[key] ? breeds[key].firstSeen : null
         }));
       }
     }
@@ -2794,21 +3037,38 @@
       const toastEl = document.getElementById('toast');
       const toastQueue = [];
       let toastBusy = false;
+      let toastTimer = null;
+      let currentToast = null;
+      let toastShownAt = 0;
       const playNextToast = () => {
         const message = toastQueue.shift();
         if (!message) {
           toastBusy = false;
+          currentToast = null;
           return;
         }
         toastBusy = true;
+        currentToast = message;
+        toastShownAt = performance.now();
         toastEl.textContent = message;
         toastEl.classList.add('is-visible');
-        setTimeout(() => {
+        toastTimer = setTimeout(() => {
           toastEl.classList.remove('is-visible');
-          setTimeout(playNextToast, 450);
+          toastTimer = setTimeout(playNextToast, 450);
         }, 3400);
       };
-      const showToast = (message) => {
+      // urgent: cambio de fase o respuesta a algo que ella acaba de tocar → se muestra ya,
+      // por delante de la cola. Si interrumpe un aviso que apenas se vio, ese vuelve a la cola.
+      const showToast = (message, { urgent = false } = {}) => {
+        if (urgent) {
+          clearTimeout(toastTimer);
+          if (toastBusy && currentToast && performance.now() - toastShownAt < 1500) {
+            toastQueue.unshift(currentToast);
+          }
+          toastQueue.unshift(message);
+          playNextToast();
+          return;
+        }
         if (toastQueue.length < 3) toastQueue.push(message);
         if (!toastBusy) playNextToast();
       };
@@ -2889,7 +3149,13 @@
         durationLabel.textContent = Math.round(pomodoro.durations[pomodoro.mode] / 60);
       };
 
-      const updateUI = (remainingSec, mode, isRunning, completedCycles) => {
+      // Insignia del encabezado: los mismos pomodoros completos de hoy que muestra el Diario
+      const refreshTodayBadge = () => {
+        cycleCounterBadge.textContent = `🍅 ${store.todayPomodoros()} hoy`;
+      };
+      store.onExternalChange = refreshTodayBadge; // otra pestaña completó un pomodoro
+
+      const updateUI = (remainingSec, mode, isRunning) => {
         timerDisplay.textContent = formatTime(remainingSec);
         const iconKey = isRunning ? 'pause' : 'play';
         if (startPauseIcon.dataset.icon !== iconKey) {
@@ -2897,7 +3163,7 @@
           startPauseIcon.innerHTML = ICONS[iconKey];
         }
         startPauseText.textContent = isRunning ? 'Pausar' : 'Iniciar';
-        cycleCounterBadge.textContent = `Ciclo #${completedCycles + 1}`;
+        refreshTodayBadge();
 
         world.isBreakMode = (mode === 'break');
         // Cambiar data-mode dispara las transiciones CSS crema ↔ lavanda
@@ -2911,15 +3177,18 @@
         zenModeLabel.textContent = MODE_LABELS[mode];
         refreshDurationLabel();
 
+        const phaseEndHint = pomodoro.autoTransition
+          ? (mode === 'work' ? 'Pasa sola a Descanso al terminar' : 'Volverá sola a Concentración')
+          : 'Sonará la campana al terminar';
         if (mode === 'work') {
           modeEmoji.textContent = '🦆';
           statusSubtitle.textContent = isRunning
-            ? 'Concentración activa · Pasa automático a Descanso al terminar'
+            ? `Concentración activa · ${phaseEndHint}`
             : 'Toca el agua para dar miguitas o a un pato para oír su ¡Cuack!';
         } else {
           modeEmoji.textContent = '💤';
           statusSubtitle.textContent = isRunning
-            ? 'Descanso en curso · Volverá a Concentración automáticamente'
+            ? `Descanso en curso · ${phaseEndHint}`
             : 'Tiempo de descanso · Los patitos duermen en el lago';
         }
 
@@ -2932,19 +3201,21 @@
           : 'PatoPomodoro';
       };
 
-      // Suma los segundos reales de Concentración (aguanta pausas, saltos y pestañas en segundo plano)
+      // Suma los segundos reales de Concentración (aguanta pausas, saltos y pestañas en segundo plano).
+      // Solo cuenta entre dos ticks seguidos con el reloj en marcha: así no suman los saltos del
+      // reloj al ajustar ±min, ni una fase que arrancó sola mientras ella no estaba.
       let lastTick = null;
       const trackFocusTime = (remainingSec, mode, isRunning) => {
-        if (isRunning && mode === 'work' && lastTick && lastTick.mode === 'work') {
+        if (isRunning && mode === 'work' && lastTick && lastTick.isRunning && lastTick.mode === 'work') {
           store.addFocusSeconds(Math.max(0, lastTick.remainingSec - remainingSec));
         }
-        lastTick = { remainingSec, mode };
+        lastTick = { remainingSec, mode, isRunning };
       };
 
       const pomodoro = new DriftFreePomodoro(
-        (remainingSec, mode, isRunning, completedCycles) => {
+        (remainingSec, mode, isRunning) => {
           trackFocusTime(remainingSec, mode, isRunning);
-          updateUI(remainingSec, mode, isRunning, completedCycles);
+          updateUI(remainingSec, mode, isRunning);
         },
         (finishedMode, nextMode) => {
           audio.triggerCycleChime(nextMode === 'break');
@@ -2954,9 +3225,9 @@
           const finishedNaturally = finishedMode === 'work' && pomodoro.remainingSec === 0;
           if (finishedNaturally) {
             const todayCount = store.recordCompletedPomodoro();
-            showToast(`🌙 ¡Buen trabajo! Hora de descansar · 🍅 ${todayCount} hoy · +1 patito`);
+            showToast(`🌙 ¡Buen trabajo! Hora de descansar · 🍅 ${todayCount} hoy · +1 patito`, { urgent: true });
           } else {
-            showToast(nextMode === 'break' ? '🌙 Hora de descansar' : '🌱 De vuelta a concentrarse');
+            showToast(nextMode === 'break' ? '🌙 Hora de descansar' : '🌱 De vuelta a concentrarse', { urgent: true });
           }
 
           if (finishedMode === 'work') {
@@ -2984,6 +3255,11 @@
       refreshAutoBadge();
       themeSelector.value = settings.theme;
       pomodoro.reset(); // Pinta el reloj con la duración guardada
+
+      // Volvió después de que también terminara la fase siguiente: el reloj espera en pausa
+      pomodoro.onCatchUpPause = () => {
+        showToast('👋 ¡Hola de nuevo! Pulsa Iniciar cuando quieras');
+      };
 
       // Eventos de Botones del Reloj
       btnStartPause.addEventListener('click', () => {
@@ -3014,6 +3290,7 @@
       document.querySelectorAll('.time-adj-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const delta = parseInt(btn.getAttribute('data-adjust'), 10);
+          lastTick = null; // el salto del reloj no debe contarse como minutos de foco
           pomodoro.adjustMinutes(delta);
           refreshDurationLabel();
           store.updateSettings({
@@ -3021,7 +3298,8 @@
             breakMin: Math.round(pomodoro.durations.break / 60)
           });
           if (pomodoro.isRunning) {
-            showToast(`⏱ ${MODE_LABELS[pomodoro.mode]}: ${durationLabel.textContent} min desde el próximo ciclo`);
+            const sign = delta > 0 ? '+' : '−';
+            showToast(`⏱ ${sign}${Math.abs(delta)} min · quedan ${formatTime(pomodoro.remainingSec)}`, { urgent: true });
           }
         });
       });
@@ -3039,13 +3317,39 @@
 
       btnTestQuack.addEventListener('click', () => {
         audio.initIfNeeded();
+        if (world.isBreakMode) {
+          showToast('Shh… los patitos duermen 💤', { urgent: true }); // en Descanso nadie está despierto
+          return;
+        }
         world.triggerRandomDuckQuack();
       });
+
+      // La barra del sistema (app instalada) toma el color del agua del tema
+      const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+      const refreshThemeColor = (themeKey) => {
+        themeColorMeta.setAttribute('content', VISUAL_THEMES[themeKey].waterTop);
+      };
+      refreshThemeColor(settings.theme);
 
       themeSelector.addEventListener('change', (e) => {
         renderer.setTheme(e.target.value);
         document.body.dataset.theme = e.target.value;
+        refreshThemeColor(e.target.value);
         store.updateSettings({ theme: e.target.value });
+      });
+
+      // Mini selector de fps: alterna 30 (por defecto, cuida la batería) y 60
+      const btnFps = document.getElementById('btnFps');
+      const refreshFpsChip = () => {
+        btnFps.textContent = `${store.settings.fps} fps`;
+      };
+      refreshFpsChip();
+      btnFps.addEventListener('click', () => {
+        store.updateSettings({ fps: store.settings.fps === 30 ? 60 : 30 });
+        refreshFpsChip();
+        showToast(store.settings.fps === 30
+          ? '🔋 30 fps · animación tranquila que cuida la batería'
+          : '✨ 60 fps · animación más fluida', { urgent: true });
       });
 
       // Controles del Mezclador de Audio
@@ -3087,10 +3391,17 @@
       });
 
       const btnMuteAll = document.getElementById('btnMuteAll');
-      btnMuteAll.addEventListener('click', () => {
-        const muted = audio.toggleMasterMute();
+      const refreshMuteButton = (muted) => {
         btnMuteAll.textContent = muted ? '🔇 Silencio' : '🔊 Sonido';
         btnMuteAll.setAttribute('aria-pressed', String(muted));
+      };
+      // El silencio se recuerda: se aplica antes del primer toque (initIfNeeded lo respeta)
+      audio.isMutedAll = settings.muted;
+      refreshMuteButton(settings.muted);
+      btnMuteAll.addEventListener('click', () => {
+        const muted = audio.toggleMasterMute();
+        refreshMuteButton(muted);
+        store.updateSettings({ muted });
       });
 
       const setMixerOpen = (open) => {
@@ -3187,22 +3498,31 @@
         }, 0);
       };
 
+      // "2026-10-19" → "19 oct" (fecha local, sin pasar por UTC)
+      const formatShortDate = (dateKey) => {
+        const [y, m, d] = dateKey.split('-').map(Number);
+        return new Date(y, m - 1, d).toLocaleDateString('es', { day: 'numeric', month: 'short' }).replace('.', '');
+      };
+
       const renderBreeds = () => {
         const collection = store.breedCollection();
         const discovered = collection.filter(breed => breed.discovered).length;
         breedCount.textContent = `${discovered}/${collection.length}`;
         breedGrid.innerHTML = collection.map(breed => {
           let meta = 'Aún no ha visitado';
+          let since = '';
           if (breed.discovered) {
             meta = breed.visits > 0
               ? `×${breed.visits} ${breed.visits === 1 ? 'visita' : 'visitas'}`
               : 'Residente 🏡';
+            since = `<div class="breed-since">desde el ${formatShortDate(breed.firstSeen)}</div>`;
           }
           return `
             <div class="breed-card${breed.discovered ? '' : ' is-locked'}">
               <canvas class="breed-canvas" data-breed="${breed.key}" aria-hidden="true"></canvas>
               <div class="breed-name">${breed.discovered ? breed.name : '???'}</div>
               <div class="breed-meta">${meta}</div>
+              ${since}
             </div>`;
         }).join('');
         breedGrid.querySelectorAll('.breed-canvas').forEach(drawBreedPortrait);
@@ -3243,7 +3563,7 @@
           }
           if (!zenHintShown) {
             zenHintShown = true;
-            showToast('👁️ Modo Zen · doble toque en una esquina para volver');
+            showToast('👁️ Modo Zen · doble toque en una esquina para volver', { urgent: true });
           }
         } else {
           btnZen.focus({ preventScroll: true });
@@ -3294,16 +3614,34 @@
       });
       window.addEventListener('pagehide', () => store.flush());
 
-      // Bucle principal a 60 FPS
+      // PWA: el service worker guarda la app para abrirla sin internet (no funciona con file://)
+      if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+        navigator.serviceWorker.register('./sw.js').catch((err) => {
+          console.warn('No se pudo registrar el service worker:', err);
+        });
+      }
+
+      // Bucle principal, limitado a store.settings.fps (30 por defecto, para cuidar la batería)
       let lastTime = performance.now();
+      let loopErrorLogged = false;
       const loop = (now) => {
+        requestAnimationFrame(loop); // Se programa primero: un error en el fotograma no detiene el lago
+
+        // Margen de 2 ms: los fotogramas de la pantalla no llegan con precisión exacta
+        if (now - lastTime < 1000 / store.settings.fps - 2) return;
         const dt = Math.min(0.05, (now - lastTime) / 1000);
         lastTime = now;
         const timeSec = now / 1000;
 
-        world.update(dt, timeSec);
-        world.render(timeSec);
-        requestAnimationFrame(loop);
+        try {
+          world.update(dt, timeSec);
+          world.render(timeSec);
+        } catch (err) {
+          if (!loopErrorLogged) {
+            loopErrorLogged = true;
+            console.error('Error en el bucle del lago (se sigue animando):', err);
+          }
+        }
       };
       requestAnimationFrame(loop);
     });

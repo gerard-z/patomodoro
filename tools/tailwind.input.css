@@ -1,0 +1,5 @@
+/* Entrada de Tailwind: genera css/tailwind.css con las clases usadas en index.html.
+   npx tailwindcss@3.4.17 -i tools/tailwind.input.css -o css/tailwind.css --content index.html --minify */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
