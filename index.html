@@ -1614,15 +1614,7 @@
 
         // 3. Efectos flotantes sobre el patito ("Zzz", "💛" o burbuja "¡Cuack!")
         const topY = duck.y - duck.z;
-        if (duck.state === 'SLEEPING') {
-          ctx.save();
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-          ctx.font = 'bold 13px Quicksand, sans-serif';
-          const zFloat = (timeSec * 15 + duck.seed * 10) % 24;
-          ctx.globalAlpha = 1 - zFloat / 24;
-          ctx.fillText('Zzz', duck.x + 10, topY - 20 - zFloat);
-          ctx.restore();
-        } else if (duck.quackTimer > 0) {
+        if (duck.quackTimer > 0) {
           ctx.save();
           const floatUp = (0.55 - duck.quackTimer) * 18;
           ctx.font = 'bold 12px Fredoka, sans-serif';
@@ -1648,6 +1640,14 @@
           ctx.save();
           ctx.font = '16px sans-serif';
           ctx.fillText('💛', duck.x - 8, topY - 28 - (1 - duck.heartTimer) * 15);
+          ctx.restore();
+        } else if (duck.state === 'SLEEPING') {
+          ctx.save();
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+          ctx.font = 'bold 13px Quicksand, sans-serif';
+          const zFloat = (timeSec * 15 + duck.seed * 10) % 24;
+          ctx.globalAlpha = 1 - zFloat / 24;
+          ctx.fillText('Zzz', duck.x + 10, topY - 20 - zFloat);
           ctx.restore();
         }
       }
@@ -2100,11 +2100,12 @@
     const CRUMB_SINK_TIME = 2;      // segundos que tarda en desvanecerse
 
     class LakeWorld {
-      constructor(canvas, renderer, audioMixer, onDuckCountChange) {
+      constructor(canvas, renderer, audioMixer, onDuckCountChange, getDiscoveredBreeds = null) {
         this.canvas = canvas;
         this.renderer = renderer;
         this.audio = audioMixer;
         this.onDuckCountChange = onDuckCountChange;
+        this.getDiscoveredBreeds = getDiscoveredBreeds;
         this.isBreakMode = false;
 
         this.ducks = [];
@@ -2112,6 +2113,7 @@
         this.lilyPads = [];
         this.crumbs = [];
         this.fireflies = [];
+
         this.flightEventTimer = 22; // Cada cierto tiempo llega o se va un patito volando
         this.nextFlyActionIsArrival = true;
 
@@ -2172,7 +2174,14 @@
         };
       }
 
-      getRandomBreedKey() {
+      // Si allowUndiscovered es false, elige solo entre las razas ya descubiertas en el Diario
+      getRandomBreedKey(allowUndiscovered = false) {
+        if (!allowUndiscovered && typeof this.getDiscoveredBreeds === 'function') {
+          const discovered = this.getDiscoveredBreeds();
+          if (Array.isArray(discovered) && discovered.length > 0) {
+            return discovered[Math.floor(Math.random() * discovered.length)];
+          }
+        }
         return DUCK_BREED_KEYS[Math.floor(Math.random() * DUCK_BREED_KEYS.length)];
       }
 
@@ -2248,18 +2257,18 @@
       }
 
       // Nace un patito junto a una "madre" que esté en el agua y dentro de la pantalla
-      spawnBabyDuckling() {
+      spawnBabyDuckling({ allowUndiscovered = false } = {}) {
         const mother = this.ducks.find(d => d.z === 0 && d.state !== 'TAKING_OFF'
           && d.x >= 0 && d.x <= this.width && d.y >= 0 && d.y <= this.height);
         const x = mother ? mother.x - 30 : this.width * 0.5;
         const y = mother ? mother.y + 20 : this.height * 0.5;
-        const baby = this.createDuck(x, y, true, this.getRandomBreedKey());
+        const baby = this.createDuck(x, y, true, this.getRandomBreedKey(allowUndiscovered));
         baby.heartTimer = 1.0;
         this.ducks.push(baby);
         this.makeDuckQuack(baby);
         this.enforceDuckLimit();
         if (this.onDuckCountChange) this.onDuckCountChange(this.ducks.length);
-        return this.ducks.length;
+        return baby;
       }
 
       // Si hay más de MAX_DUCKS_ON_WATER patos (sin contar los que ya se van), el más antiguo
@@ -2686,7 +2695,7 @@
         const nextMode = finishedMode === 'work' ? 'break' : 'work';
 
         if (this.onPhaseChange) {
-          this.onPhaseChange(finishedMode, nextMode, this.completedWorkCycles);
+          this.onPhaseChange(finishedMode, nextMode, this.completedWorkCycles, natural);
         }
 
         if (!this.autoTransition) {
@@ -3089,10 +3098,29 @@
         }
       };
 
-      const world = new LakeWorld(canvas, renderer, audio, (newCount) => {
-        duckCountBadge.textContent = newCount;
-        registerNewDucks(true);
-      });
+      // Registrar únicamente un patito nacido por completar un Pomodoro natural
+      const registerPomodoroDuck = (duck) => {
+        if (!duck) return;
+        const isNewBreed = store.registerBreed(duck.breedKey, true);
+        if (isNewBreed) {
+          showToast(`✨ ¡Nueva raza en tu lago: ${DUCK_BREEDS[duck.breedKey].name}!`);
+        }
+      };
+
+      const world = new LakeWorld(
+        canvas,
+        renderer,
+        audio,
+        (newCount) => {
+          duckCountBadge.textContent = newCount;
+        },
+        () => Object.keys(store.data.stats.breeds)
+      );
+
+      // Las 4 razas residentes iniciales quedan visibles en el Diario como "Residente 🏡" (0 visitas)
+      for (const duck of world.ducks) {
+        store.registerBreed(duck.breedKey, false);
+      }
       registerNewDucks(false); // Las residentes iniciales quedan descubiertas sin sumar visita
 
       // Referencias DOM
@@ -3217,24 +3245,27 @@
           trackFocusTime(remainingSec, mode, isRunning);
           updateUI(remainingSec, mode, isRunning);
         },
-        (finishedMode, nextMode) => {
+        (finishedMode, nextMode, _cycles, natural = false) => {
+          world.isBreakMode = (nextMode === 'break');
           audio.triggerCycleChime(nextMode === 'break');
 
-          // Solo cuenta como pomodoro (y patito criado) si el reloj llegó a cero sin saltarlo con ⏭.
-          // El aviso de fase va primero; el de "nueva raza" del pato que llega queda en cola detrás.
-          const finishedNaturally = finishedMode === 'work' && pomodoro.remainingSec === 0;
+          // Solo cuenta como pomodoro (y descubre nueva raza) si llegó a 00:00 naturalmente
+          const finishedNaturally = finishedMode === 'work' && natural;
           if (finishedNaturally) {
             const todayCount = store.recordCompletedPomodoro();
-            showToast(`🌙 ¡Buen trabajo! Hora de descansar · 🍅 ${todayCount} hoy · +1 patito`, { urgent: true });
+            showToast(`🎉 ¡Buen trabajo! Hora de descansar · ${todayCount} hoy · +1 patito`, { urgent: true });
           } else {
-            showToast(nextMode === 'break' ? '🌙 Hora de descansar' : '🌱 De vuelta a concentrarse', { urgent: true });
+            showToast(nextMode === 'break' ? '🌙 Hora de descansar' : '☀️ De vuelta a concentrarse', { urgent: true });
           }
 
           if (finishedMode === 'work') {
-            // Al terminar Concentración, llega un nuevo pato colorido volando
-            world.spawnFlyingDuck();
+            // Al pasar a Descanso: solo nace un patito bebé (y si fue natural, puede descubrir raza)
+            const baby = world.spawnBabyDuckling({ allowUndiscovered: finishedNaturally });
+            if (finishedNaturally) {
+              registerPomodoroDuck(baby);
+            }
           } else {
-            // Al volver a Concentración desde Descanso, los patos despiertan con un ¡Cuack! y uno sale o llega volando
+            // Al volver a Concentración: los patos despiertan y uno llega o sale volando
             world.triggerFlightShowcase();
             setTimeout(() => world.triggerRandomDuckQuack(), 450);
           }
