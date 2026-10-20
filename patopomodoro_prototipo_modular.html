@@ -1015,12 +1015,21 @@
         }
       }
 
-      triggerQuack(pitchMultiplier = 1.0, forceAudible = false) {
+      triggerQuack(optionsOrPitch = 1.0, forceAudible = false) {
         this.initIfNeeded();
-        const vol = forceAudible ? Math.max(this.volumes.ducks, 0.45) : this.volumes.ducks;
-        if (vol <= 0.01) return;
 
-        if (this.onQuackCallback) this.onQuackCallback();
+        let pitchMultiplier = 1.0;
+        let force = forceAudible;
+
+        if (typeof optionsOrPitch === 'number') {
+          pitchMultiplier = optionsOrPitch;
+        } else if (optionsOrPitch && typeof optionsOrPitch === 'object') {
+          pitchMultiplier = optionsOrPitch.pitch || 1.0;
+          force = Boolean(optionsOrPitch.force);
+        }
+
+        const vol = force ? Math.max(this.channels.ducks.volume, 0.55) : this.channels.ducks.volume;
+        if (vol <= 0.01 || !this.channels.ducks.enabled || this.isMutedAll) return;
 
         // MODO A: Si hay un archivo .mp3/.wav real cargado, usar técnica Stardew Valley (Pitch Shifting)
         if (this.quackBuffer) {
