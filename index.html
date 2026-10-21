@@ -2,12 +2,14 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- viewport-fit=cover: el lago llega hasta el notch y la barra de gestos (la interfaz se aparta con env(safe-area-inset-*)) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description" content="Pomodoro cozy con un lago de patitos." />
   <meta name="theme-color" content="#2b7a78" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <!-- iPhone instalado: barra de estado transparente, el lago se ve detrás de la hora y el notch -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="PatoPomodoro" />
   <title>PatoPomodoro</title>
   <link rel="manifest" href="manifest.webmanifest" />
@@ -708,8 +710,8 @@
 
     .zen-exit {
       position: fixed;
-      top: 14px;
-      right: 14px;
+      top: max(14px, env(safe-area-inset-top));
+      right: max(14px, env(safe-area-inset-right));
       z-index: 30;
       display: grid;
       place-items: center;
@@ -750,7 +752,7 @@
        ========================================================================== */
     .journal {
       width: min(27rem, calc(100vw - 24px));
-      max-height: calc(100% - 24px);
+      max-height: calc(100% - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
       margin: auto;
       padding: 0;
       overflow-y: auto;
@@ -912,6 +914,20 @@
       opacity: 0.8;
     }
 
+    /* Notch y barra de gestos: el lago se dibuja también detrás de ellos (viewport-fit=cover)
+       y la interfaz se aparta lo justo. env() vale 0 donde no hay nada que esquivar. */
+    body .hud {
+      --hud-pad: 0.75rem;
+      padding:
+        max(var(--hud-pad), env(safe-area-inset-top))
+        max(var(--hud-pad), env(safe-area-inset-right))
+        max(var(--hud-pad), env(safe-area-inset-bottom))
+        max(var(--hud-pad), env(safe-area-inset-left));
+    }
+    @media (min-width: 640px) {
+      body .hud { --hud-pad: 1.5rem; }
+    }
+
     /* Pantallas bajas (móvil en horizontal): compactar la tarjeta */
     @media (max-height: 560px) {
       .timer-digits { font-size: 3rem; margin: 0.2rem 0 0.4rem; }
@@ -963,7 +979,7 @@
       .toggle-row { padding-top: 0.4rem; padding-bottom: 0.4rem; }
       .toast {                        /* bajo la tarjeta no hay sitio: arriba de la pantalla */
         position: fixed;
-        top: 0.75rem;
+        top: max(0.75rem, env(safe-area-inset-top));
       }
     }
 
@@ -992,7 +1008,7 @@
   <canvas id="lakeCanvas" class="absolute inset-0 w-full h-full block cursor-pointer"></canvas>
 
   <!-- INTERFAZ FLOTANTE (HUD) -->
-  <div class="hud relative z-10 w-full h-full pointer-events-none flex flex-col justify-between p-3 sm:p-6 max-w-xl mx-auto">
+  <div class="hud relative z-10 w-full h-full pointer-events-none flex flex-col justify-between max-w-xl mx-auto">
 
     <!-- BARRA SUPERIOR: Estado, Diario, Modo Zen y juegos del lago (se pliega en Modo Zen) -->
     <div class="zen-collapse hud-header">
@@ -1679,8 +1695,7 @@
         this.onAmbientQuackCallback = null;
         this.quackBuffer = null;      // Cuack real ya decodificado (opcional)
         this.pendingQuackData = null; // Cuack real descargado, pendiente de decodificar
-        // Para usar un sonido real (ej. 'quack.mp3' junto a index.html), llama desde el
-        // orquestador a audio.loadRealQuackSample('./quack.mp3').
+        // El orquestador carga el sonido real con audio.loadRealQuackSample('./cuack.mp3').
 
         this.channels = {
           water: { enabled: true, volume: 0.45, gainNode: null },
@@ -1958,12 +1973,44 @@
         const data = this.pendingQuackData;
         if (!data) return;
         this.pendingQuackData = null;
-        this.ctx.decodeAudioData(data)
+        // Con callbacks: el Safari antiguo (webkitAudioContext) no devuelve promesa y sin ellos lanza error
+        new Promise((resolve, reject) => {
+          const promise = this.ctx.decodeAudioData(data, resolve, reject);
+          if (promise) promise.catch(() => {}); // el error ya llega por reject
+        })
           .then(buffer => {
-            this.quackBuffer = buffer;
+            this.quackBuffer = this.trimSilence(buffer);
             console.log('🦆 Sample real de Cuack cargado con éxito');
           })
           .catch(e => console.warn('Usando el sintetizador estilo Stardew como respaldo:', e));
+      }
+
+      // Recorta el silencio antes y después del cuack (cuack.mp3 trae 0,39 s de silencio al
+      // inicio): así suena justo cuando el pato abre el pico y el doble cuack no se retrasa.
+      trimSilence(buffer) {
+        const channels = [];
+        for (let c = 0; c < buffer.numberOfChannels; c++) channels.push(buffer.getChannelData(c));
+
+        let peak = 0;
+        channels.forEach(data => data.forEach(v => { peak = Math.max(peak, Math.abs(v)); }));
+        const threshold = peak * 0.03; // por debajo del 3 % del pico se considera silencio
+
+        let first = buffer.length;
+        let last = -1;
+        channels.forEach(data => data.forEach((v, i) => {
+          if (Math.abs(v) > threshold) {
+            first = Math.min(first, i);
+            last = Math.max(last, i);
+          }
+        }));
+        if (last < first) return buffer; // archivo en silencio: se deja tal cual
+
+        // 5 ms antes del ataque y 30 ms de cola para no cortar el sonido en seco
+        const start = Math.max(0, first - Math.floor(buffer.sampleRate * 0.005));
+        const end = Math.min(buffer.length, last + Math.floor(buffer.sampleRate * 0.03));
+        const trimmed = this.ctx.createBuffer(buffer.numberOfChannels, end - start, buffer.sampleRate);
+        channels.forEach((data, c) => trimmed.getChannelData(c).set(data.subarray(start, end)));
+        return trimmed;
       }
 
       // Devuelve si el cuack fue doble ("¡Cuack, cuack!") para que la burbuja coincida.
@@ -1994,7 +2041,9 @@
             source.start(this.ctx.currentTime + delayOffset);
           };
           playSample(0, rate);
-          if (isDouble) playSample(0.19, rate * 1.06);
+          // El sample dura más que la sílaba sintetizada: el segundo cuack entra cuando el primero
+          // ya casi termina (a los 0,19 s fijos se montaban uno encima del otro)
+          if (isDouble) playSample((this.quackBuffer.duration / rate) * 0.85, rate * 1.06);
           return isDouble;
         }
 
@@ -3066,7 +3115,7 @@
           toastTimer = setTimeout(playNextToast, 450);
         }, 3400);
       };
-      // urgent: cambio de fase o respuesta a algo que ella acaba de tocar → se muestra ya,
+      // urgent: cambio de fase o respuesta a algo → se muestra ya,
       // por delante de la cola. Si interrumpe un aviso que apenas se vio, ese vuelve a la cola.
       const showToast = (message, { urgent = false } = {}) => {
         if (urgent) {
@@ -3084,6 +3133,7 @@
 
       const renderer = new LakeRenderer(canvas, settings.theme);
       const audio = new RelaxingAudioMixer();
+      audio.loadRealQuackSample('./cuack.mp3');
 
       // Cada pato nuevo que aparece en el lago (nacido o llegado volando) suma una visita a su raza
       const seenDucks = new WeakSet();
@@ -3231,7 +3281,7 @@
 
       // Suma los segundos reales de Concentración (aguanta pausas, saltos y pestañas en segundo plano).
       // Solo cuenta entre dos ticks seguidos con el reloj en marcha: así no suman los saltos del
-      // reloj al ajustar ±min, ni una fase que arrancó sola mientras ella no estaba.
+      // reloj al ajustar ±min, ni una fase que arrancó sola
       let lastTick = null;
       const trackFocusTime = (remainingSec, mode, isRunning) => {
         if (isRunning && mode === 'work' && lastTick && lastTick.isRunning && lastTick.mode === 'work') {

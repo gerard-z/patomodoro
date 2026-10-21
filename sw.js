@@ -4,13 +4,14 @@
    Al publicar cambios, sube CACHE_VERSION: así los celulares descartan la
    copia vieja y descargan la nueva.
    ========================================================================== */
-const CACHE_VERSION = 'patopomodoro-v1';
+const CACHE_VERSION = 'patopomodoro-v2';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
   './css/tailwind.css',
+  './cuack.mp3',
   './fonts/fredoka.woff2',
   './fonts/quicksand.woff2',
   './icons/icon-192.png',
@@ -19,10 +20,12 @@ const APP_SHELL = [
   './icons/apple-touch-icon.png'
 ];
 
+// cache: 'reload' pide cada archivo a la red: sin él, la versión nueva podía guardar copias
+// viejas que el navegador tenía en su propia caché HTTP
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_VERSION)
-      .then((cache) => cache.addAll(APP_SHELL))
+      .then((cache) => cache.addAll(APP_SHELL.map((url) => new Request(url, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
   );
 });
