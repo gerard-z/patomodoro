@@ -4,7 +4,7 @@
    Al publicar cambios, sube CACHE_VERSION: así los celulares descartan la
    copia vieja y descargan la nueva.
    ========================================================================== */
-const CACHE_VERSION = 'patopomodoro-v2';
+const CACHE_VERSION = 'patopomodoro-v4';
 
 const APP_SHELL = [
   './',

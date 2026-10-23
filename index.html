@@ -101,18 +101,34 @@
       --accent-ink: #231c55;
     }
 
+    /* Fondo de respaldo con el mismo degradado del agua (--lake-top/--lake-bottom los pone el JS
+       según el tema): si alguna franja (barra de estado, notch) quedara sin lienzo, no se ve negra */
+    html {
+      min-height: 100%;
+      background: linear-gradient(var(--lake-top, #2b7a78), var(--lake-bottom, #17252a));
+    }
+
     body {
       height: 100vh;
       height: 100dvh;
       font-family: var(--font-body);
       color: var(--ink);
-      background-color: #17252a;
+      background-color: transparent;
       overflow: hidden;
       user-select: none;
       -webkit-user-select: none;
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
       transition: color var(--mood-duration) var(--mood-ease);
+    }
+
+    /* El lago cubre la pantalla física entera, notch y barra de estado incluidos:
+       position: fixed se mide contra la ventana completa (con viewport-fit=cover) */
+    #lakeCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
     }
 
     .font-display {
@@ -1005,7 +1021,7 @@
 <body class="relative w-screen" data-mode="work" data-running="false" data-theme="cozyDay">
 
   <!-- LIENZO DEL LAGO (Motor 2D desacoplado) -->
-  <canvas id="lakeCanvas" class="absolute inset-0 w-full h-full block cursor-pointer"></canvas>
+  <canvas id="lakeCanvas" class="block cursor-pointer"></canvas>
 
   <!-- INTERFAZ FLOTANTE (HUD) -->
   <div class="hud relative z-10 w-full h-full pointer-events-none flex flex-col justify-between max-w-xl mx-auto">
@@ -2139,13 +2155,14 @@
        MÓDULO 3: SIMULACIÓN FÍSICA DEL LAGO, COLORES Y VUELO DE PATOS
        Soporta estados: SWIMMING | DIPPING | SLEEPING | LANDING | TAKING_OFF
        ========================================================================== */
-    // Zona donde nadan los patos: más allá de estos márgenes giran de vuelta.
+    // Zona donde nadan los patos (distancia al borde de la pantalla): toda la pantalla. Giran de
+    // vuelta cuando su centro cruza el borde, así que al girar pueden asomarse un poco por fuera.
     // Las migas se colocan dentro de esta misma zona para que siempre sean alcanzables.
-    const LAKE_BOUNDS = { side: 70, top: 130, bottom: 150 };
+    const LAKE_BOUNDS = { side: 0, top: 0, bottom: 0 };
     const LANDING_SPEED = 145;      // px/s de un pato que llega volando
-    const MAX_DUCKS_ON_WATER = 12;  // si se supera, el más antiguo se despide volando
+    const MAX_DUCKS_ON_WATER = 16;  // si se supera, el más antiguo se despide volando
     const MAX_CRUMBS = 60;
-    const CRUMB_LIFETIME = 15;      // segundos antes de que una miga empiece a hundirse
+    const CRUMB_LIFETIME = 25;      // segundos antes de que una miga empiece a hundirse
     const CRUMB_SINK_TIME = 2;      // segundos que tarda en desvanecerse
 
     class LakeWorld {
@@ -2181,8 +2198,10 @@
         const dpr = window.devicePixelRatio || 1;
         const oldWidth = this.width;
         const oldHeight = this.height;
-        this.width = window.innerWidth;
-        this.height = window.innerHeight;
+        // Tamaño real del lienzo en pantalla (con viewport-fit=cover incluye notch y barra de estado;
+        // window.innerHeight puede quedarse corto en la app instalada de iOS)
+        this.width = this.canvas.clientWidth || window.innerWidth;
+        this.height = this.canvas.clientHeight || window.innerHeight;
         this.canvas.width = this.width * dpr;
         this.canvas.height = this.height * dpr;
         this.renderer.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2210,9 +2229,10 @@
         }
       }
 
-      // Punto más cercano dentro de la zona donde nadan los patos (con holgura de 12 px)
+      // Punto más cercano dentro de la zona donde nadan los patos (a 6 px del borde como mínimo):
+      // con la zona a pantalla completa, solo mueve las migas que caerían fuera de la pantalla
       clampToSwimZone(x, y) {
-        const inset = 12;
+        const inset = 6;
         const minX = LAKE_BOUNDS.side + inset;
         const maxX = this.width - LAKE_BOUNDS.side - inset;
         const minY = LAKE_BOUNDS.top + inset;
@@ -2337,8 +2357,8 @@
       spawnFlyingDuck(customBreedKey = null) {
         const fromLeft = Math.random() < 0.5;
         const startX = fromLeft ? -50 : this.width + 50;
-        const targetX = this.width * (0.22 + Math.random() * 0.56);
-        const targetY = this.height * (0.30 + Math.random() * 0.42);
+        const targetX = this.width * (0.12 + Math.random() * 0.76);
+        const targetY = this.height * (0.15 + Math.random() * 0.70);
         const startY = targetY - 30;
 
         const duck = this.createDuck(startX, startY, Math.random() < 0.35, customBreedKey || this.getRandomBreedKey());
@@ -2577,7 +2597,7 @@
               const cIdx = this.crumbs.indexOf(nearest);
               if (cIdx !== -1) this.crumbs.splice(cIdx, 1);
               duck.heartTimer = 1.0;
-              this.makeDuckQuack(duck);
+              //this.makeDuckQuack(duck);
             }
           } else if (duck.isBaby && i > 0) {
             const leader = this.ducks[i - 1];
@@ -3408,7 +3428,10 @@
       // La barra del sistema (app instalada) toma el color del agua del tema
       const themeColorMeta = document.querySelector('meta[name="theme-color"]');
       const refreshThemeColor = (themeKey) => {
-        themeColorMeta.setAttribute('content', VISUAL_THEMES[themeKey].waterTop);
+        const theme = VISUAL_THEMES[themeKey];
+        themeColorMeta.setAttribute('content', theme.waterTop);
+        document.documentElement.style.setProperty('--lake-top', theme.waterTop);
+        document.documentElement.style.setProperty('--lake-bottom', theme.waterBottom);
       };
       refreshThemeColor(settings.theme);
 
@@ -3699,6 +3722,22 @@
       if ('serviceWorker' in navigator && location.protocol !== 'file:') {
         navigator.serviceWorker.register('./sw.js').catch((err) => {
           console.warn('No se pudo registrar el service worker:', err);
+        });
+
+        // Al publicar una versión nueva, su service worker toma el control: se recarga una vez para
+        // mostrarla ya (si no, el celular seguía con la versión vieja hasta reabrir la app dos veces).
+        // Nunca a mitad de un pomodoro: en ese caso se aplica al reabrir.
+        const hadController = Boolean(navigator.serviceWorker.controller);
+        let reloadingForUpdate = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!hadController || reloadingForUpdate) return;
+          if (pomodoro.isRunning) {
+            showToast('✨ Hay una versión nueva: se verá al reabrir la app');
+            return;
+          }
+          reloadingForUpdate = true;
+          store.flush();
+          location.reload();
         });
       }
 
