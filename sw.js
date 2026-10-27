@@ -3,14 +3,34 @@
    Guarda la app en el dispositivo para que abra sin internet.
    Al publicar cambios, sube CACHE_VERSION: así los celulares descartan la
    copia vieja y descargan la nueva.
+   Si añades un archivo a la app (otro .js, .css, imagen…), añádelo también a
+   APP_SHELL: si falta, la app no abrirá sin internet.
    ========================================================================== */
-const CACHE_VERSION = 'patopomodoro-v4';
+const CACHE_VERSION = 'patopomodoro-v5';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
   './css/tailwind.css',
+  './css/app.css',
+  './js/main.js',
+  './js/config.js',
+  './js/lake-renderer.js',
+  './js/audio-mixer.js',
+  './js/lake-world.js',
+  './js/pomodoro-timer.js',
+  './js/journal-store.js',
+  './js/focus-tracker.js',
+  './js/lake-loop.js',
+  './js/pwa.js',
+  './js/ui/format.js',
+  './js/ui/toasts.js',
+  './js/ui/timer-panel.js',
+  './js/ui/lake-toolbar.js',
+  './js/ui/sound-panel.js',
+  './js/ui/journal-dialog.js',
+  './js/ui/zen-mode.js',
   './cuack.mp3',
   './fonts/fredoka.woff2',
   './fonts/quicksand.woff2',
