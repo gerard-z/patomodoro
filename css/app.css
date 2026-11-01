@@ -1,0 +1,1008 @@
+/* ==========================================================================
+   ESTILOS PROPIOS DE PATOPOMODORO
+   Se cargan después de css/tailwind.css (que aporta el reset y las clases
+   utilitarias del HTML). Orden del archivo:
+   - Fuentes incluidas
+   - Capa 1: variables de tema (colores por tema visual y por modo)
+   - Capa 2: vidrio cálido y componentes (tarjetas, botones, mezclador…)
+   - Capa 3: Modo Zen
+   - Capa 4: Diario del Lago
+   - Ajustes para pantallas bajas, horizontal y movimiento reducido
+   ========================================================================== */
+
+/* Fuentes incluidas en la app (subconjunto latino, licencia SIL OFL: ver fonts/) */
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('../fonts/fredoka.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Quicksand';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('../fonts/quicksand.woff2') format('woff2');
+}
+
+/* ==========================================================================
+   CAPA 1: VARIABLES CSS DE TEMA UI (Fácilmente modificables)
+   Cambia estos valores para transformar toda la interfaz sin tocar el HTML/JS.
+   - data-theme en <body> ajusta el acento para que combine con el lago.
+   - data-mode en <body> pasa el vidrio de crema (Concentración) a lavanda (Descanso).
+   ========================================================================== */
+:root {
+  --font-display: 'Fredoka', sans-serif;
+  --font-body: 'Quicksand', sans-serif;
+  --ui-radius: 1.75rem;
+  --ui-radius-sm: 1.1rem;
+  --mood-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --mood-duration: 0.8s;
+
+  /* Vidrio cálido color crema */
+  --glass-bg: rgba(255, 248, 238, 0.76);
+  --glass-bg-strong: rgba(255, 250, 243, 0.95);
+  --glass-border: rgba(255, 255, 255, 0.72);
+  --glass-shadow: 0 16px 40px -14px rgba(90, 55, 25, 0.35);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --well-bg: rgba(255, 255, 255, 0.5);
+  --well-border: rgba(255, 255, 255, 0.65);
+  --chip-bg: rgba(120, 80, 40, 0.08);
+  --chip-bg-hover: rgba(120, 80, 40, 0.15);
+  --track-bg: rgba(110, 75, 40, 0.16);
+  --ink: #3d2f27;
+  --ink-soft: rgba(61, 47, 39, 0.68);
+
+  /* Acento (Lago Sereno: albaricoque) */
+  --accent: #f4a259;
+  --accent-strong: #d9772b;
+  --accent-soft: rgba(244, 162, 89, 0.22);
+  --accent-ink: #3b1d06;
+}
+
+body[data-theme="sunsetGhibli"] {
+  --accent: #f2949f;
+  --accent-strong: #d0617a;
+  --accent-soft: rgba(242, 148, 159, 0.24);
+  --accent-ink: #4a1424;
+}
+
+body[data-theme="matchaMinimal"] {
+  --accent: #a3c48a;
+  --accent-strong: #5f8a4e;
+  --accent-soft: rgba(163, 196, 138, 0.28);
+  --accent-ink: #1f3317;
+}
+
+/* Modo Descanso: vidrio lavanda de atardecer y tinta índigo suave */
+body[data-mode="break"] {
+  --glass-bg: rgba(237, 234, 252, 0.76);
+  --glass-bg-strong: rgba(245, 243, 255, 0.95);
+  --glass-shadow: 0 16px 40px -14px rgba(40, 30, 95, 0.42);
+  --chip-bg: rgba(75, 65, 150, 0.09);
+  --chip-bg-hover: rgba(75, 65, 150, 0.17);
+  --track-bg: rgba(75, 65, 150, 0.16);
+  --ink: #2f2a4d;
+  --ink-soft: rgba(47, 42, 77, 0.68);
+  --accent: #b3a8f5;
+  --accent-strong: #7466d6;
+  --accent-soft: rgba(179, 168, 245, 0.3);
+  --accent-ink: #231c55;
+}
+
+/* Fondo de respaldo con el mismo degradado del agua (--lake-top/--lake-bottom los pone el JS
+   según el tema): si alguna franja (barra de estado, notch) quedara sin lienzo, no se ve negra */
+html {
+  min-height: 100%;
+  background: linear-gradient(var(--lake-top, #2b7a78), var(--lake-bottom, #17252a));
+}
+
+body {
+  height: 100vh;
+  height: 100dvh;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background-color: transparent;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--mood-duration) var(--mood-ease);
+}
+
+/* El lago cubre la pantalla física entera, notch y barra de estado incluidos:
+   position: fixed se mide contra la ventana completa (con viewport-fit=cover) */
+#lakeCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.muted {
+  color: var(--ink-soft);
+  transition: color var(--mood-duration) var(--mood-ease);
+}
+
+:focus-visible {
+  outline: 2.5px solid var(--accent-strong);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   CAPA 2: VIDRIO CÁLIDO Y COMPONENTES
+   ========================================================================== */
+.glass-panel {
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--ui-radius);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  transition:
+    background-color var(--mood-duration) var(--mood-ease),
+    border-color var(--mood-duration) var(--mood-ease),
+    box-shadow var(--mood-duration) var(--mood-ease),
+    backdrop-filter var(--mood-duration) var(--mood-ease),
+    -webkit-backdrop-filter var(--mood-duration) var(--mood-ease);
+}
+
+.soft-badge {
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background-color: var(--accent-soft);
+  transition: background-color var(--mood-duration) var(--mood-ease);
+}
+
+.mode-orb {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.4rem;
+  height: 2.4rem;
+  font-size: 1.3rem;
+  border-radius: 999px;
+  background-color: var(--accent-soft);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.6);
+  transition: background-color var(--mood-duration) var(--mood-ease);
+}
+
+.subtitle {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: color var(--mood-duration) var(--mood-ease);
+}
+
+/* Píldora de herramientas y botones de icono */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.3rem;
+  border-radius: 999px;
+}
+
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 2.25rem;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+.tool-btn:hover { background-color: var(--chip-bg-hover); }
+.tool-btn:active { transform: scale(0.94); }
+.tool-btn-soft { background-color: var(--chip-bg); }
+
+.tool-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  background-color: var(--accent-soft);
+  transition: background-color var(--mood-duration) var(--mood-ease);
+}
+
+.tool-sep {
+  width: 1px;
+  height: 1.25rem;
+  margin: 0 0.15rem;
+  background-color: var(--track-bg);
+}
+
+.tool-fps {
+  padding: 0 0.6rem;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  background-color: var(--chip-bg);
+}
+
+.tool-select {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 2.25rem;
+  padding: 0 1.7rem 0 0.8rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  background-color: var(--chip-bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233d2f27' stroke-opacity='.6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 0.75rem;
+  transition: background-color 0.2s ease;
+}
+.tool-select:hover { background-color: var(--chip-bg-hover); }
+body[data-mode="break"] .tool-select {
+  /* La flecha es un SVG con color fijo: en Descanso se cambia a la tinta índigo */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232f2a4d' stroke-opacity='.6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+.chip-btn {
+  padding: 0.3rem 0.65rem;
+  border-radius: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background-color: var(--chip-bg);
+  transition: background-color 0.2s ease, transform 0.15s ease;
+}
+.chip-btn:hover { background-color: var(--chip-bg-hover); }
+.chip-btn:active { transform: scale(0.94); }
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1.1rem;
+  background-color: var(--chip-bg);
+  transition: background-color 0.2s ease, transform 0.15s ease;
+}
+.icon-btn:hover { background-color: var(--chip-bg-hover); }
+.icon-btn:active { transform: scale(0.94); }
+.icon-btn-sm {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+}
+
+.icon,
+.icon-btn svg {
+  display: block;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+/* Tarjeta del reloj */
+.timer-card {
+  position: relative;
+}
+
+/* Halo que "respira" mientras el reloj corre (solo opacidad: barato para el móvil) */
+.timer-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 36px 2px var(--accent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+body[data-running="true"] .timer-card::before {
+  animation: cozy-breathe 4.5s ease-in-out infinite;
+}
+@keyframes cozy-breathe {
+  0%, 100% { opacity: 0.08; }
+  50% { opacity: 0.5; }
+}
+
+.segmented {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  padding: 0.25rem;
+  border-radius: 999px;
+  background-color: var(--chip-bg);
+  transition: background-color var(--mood-duration) var(--mood-ease);
+}
+.segmented-pill {
+  position: absolute;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  left: 0.25rem;
+  width: calc(50% - 0.25rem);
+  border-radius: 999px;
+  background-color: var(--glass-bg-strong);
+  box-shadow: 0 2px 8px -2px rgba(60, 40, 20, 0.25);
+  transition:
+    transform 0.55s cubic-bezier(0.34, 1.3, 0.5, 1),
+    background-color var(--mood-duration) var(--mood-ease);
+}
+body[data-mode="break"] .segmented-pill {
+  transform: translateX(100%);
+}
+.segmented-btn {
+  position: relative;
+  z-index: 1;
+  padding: 0.45rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+.segmented-btn:hover,
+.segmented-btn[aria-pressed="true"] { opacity: 1; }
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.65rem;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1f5a43;
+  background-color: rgba(52, 168, 120, 0.16);
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+.status-pill[data-state="off"] {
+  color: var(--ink-soft);
+  background-color: var(--chip-bg);
+}
+
+.timer-digits {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-size: 4rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  margin: 0.4rem 0 0.6rem;
+  text-shadow: 0 2px 24px rgba(10, 20, 25, 0), 0 1px 2px rgba(10, 20, 25, 0);
+  transition:
+    font-size 0.7s var(--mood-ease),
+    color var(--mood-duration) var(--mood-ease),
+    text-shadow var(--mood-duration) var(--mood-ease);
+}
+@media (min-width: 640px) {
+  .timer-digits { font-size: 4.75rem; }
+}
+.timer-digits.is-popping {
+  animation: cozy-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes cozy-pop {
+  from { transform: scale(0.93); opacity: 0.55; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.progress-track {
+  width: 100%;
+  max-width: 15rem;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background-color: var(--track-bg);
+  transition: background-color var(--mood-duration) var(--mood-ease);
+}
+.progress-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--accent-strong);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition:
+    transform 0.35s linear,
+    background-color var(--mood-duration) var(--mood-ease);
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border-radius: var(--ui-radius-sm);
+  background-color: var(--well-bg);
+  border: 1px solid var(--well-border);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.25s ease;
+}
+.toggle-row:hover { background-color: rgba(255, 255, 255, 0.68); }
+
+/* Mini-interruptores (el checkbox real sigue ahí, invisible, para accesibilidad) */
+.switch {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 2.2rem;
+  height: 1.3rem;
+}
+.switch input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.switch-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background-color: var(--track-bg);
+  transition: background-color 0.25s ease;
+}
+.switch-track::after {
+  content: '';
+  position: absolute;
+  top: 0.15rem;
+  left: 0.15rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(40, 25, 10, 0.3);
+  transition: transform 0.3s cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+.switch input:checked + .switch-track { background-color: var(--accent-strong); }
+.switch input:checked + .switch-track::after { transform: translateX(0.9rem); }
+.switch input:focus-visible + .switch-track {
+  outline: 2.5px solid var(--accent-strong);
+  outline-offset: 2px;
+}
+
+.primary-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1.25rem;
+  border-radius: 1.1rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--accent-ink);
+  background-color: var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 8px 18px -8px var(--accent-strong);
+  transition:
+    background-color var(--mood-duration) var(--mood-ease),
+    color var(--mood-duration) var(--mood-ease),
+    box-shadow var(--mood-duration) var(--mood-ease),
+    transform 0.15s ease,
+    filter 0.2s ease;
+}
+.primary-btn:hover { filter: brightness(1.04) saturate(1.06); }
+.primary-btn:active { transform: scale(0.96); }
+
+/* Sliders personalizados con pista rellena (--fill se actualiza desde JS) */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  cursor: pointer;
+  outline-offset: 5px;
+  background: linear-gradient(to right, var(--accent-strong) 0 var(--fill, 50%), var(--track-bg) var(--fill, 50%) 100%);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid var(--accent-strong);
+  box-shadow: 0 2px 6px rgba(60, 35, 15, 0.25);
+  transition: transform 0.15s ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid var(--accent-strong);
+  box-shadow: 0 2px 6px rgba(60, 35, 15, 0.25);
+}
+input[type="range"]::-moz-range-track {
+  background: transparent;
+}
+
+/* Mezclador plegable */
+.mixer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.2rem 0.45rem 0.2rem 0.15rem;
+  border-radius: 0.8rem;
+}
+.mixer-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.mixer-chevron {
+  width: 0.95rem;
+  height: 0.95rem;
+  opacity: 0.6;
+  transition: transform 0.4s var(--mood-ease);
+}
+.mixer.is-collapsed .mixer-chevron { transform: rotate(-90deg); }
+
+.collapsible {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows 0.5s var(--mood-ease),
+    opacity 0.35s ease,
+    visibility 0s;
+}
+.collapsible > * { min-height: 0; }
+.mixer.is-collapsed .collapsible {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 0.5s var(--mood-ease),
+    opacity 0.25s ease,
+    visibility 0s linear 0.5s;
+}
+.mixer.is-collapsed .collapsible > * { overflow: hidden; }
+
+.channel-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.6rem 0.7rem 0.75rem;
+  border-radius: 1rem;
+  background-color: var(--well-bg);
+  border: 1px solid var(--well-border);
+  transition: opacity 0.3s ease;
+}
+.channel-card:has(.switch input:not(:checked)) { opacity: 0.5; }
+.channel-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Aviso suave bajo el reloj (cambio de fase, nueva raza, pista del Modo Zen) */
+.toast {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 0.75rem);
+  z-index: 5;
+  width: max-content;
+  max-width: min(22rem, calc(100vw - 32px));
+  padding: 0.55rem 1rem;
+  border-radius: 1.2rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink);
+  background-color: var(--glass-bg-strong);
+  box-shadow: var(--glass-shadow);
+  opacity: 0;
+  transform: translate(-50%, 6px);
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.4s var(--mood-ease);
+}
+.toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ==========================================================================
+   CAPA 3: MODO ZEN (solo el reloj flotando sobre el lago)
+   Los bloques .zen-collapse se pliegan con grid-template-rows para que el
+   reloj se deslice suavemente al centro de la pantalla.
+   ========================================================================== */
+.zen-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows 0.6s var(--mood-ease),
+    opacity 0.45s ease 0.1s,
+    visibility 0s;
+}
+.zen-collapse > * { min-height: 0; }
+body.zen .zen-collapse {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    grid-template-rows 0.6s var(--mood-ease),
+    opacity 0.35s ease,
+    visibility 0s linear 0.6s;
+}
+body.zen .zen-collapse > * { overflow: hidden; }
+
+.zen-only {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 0.6s var(--mood-ease),
+    opacity 0.3s ease,
+    visibility 0s linear 0.6s;
+}
+.zen-only > * {
+  min-height: 0;
+  overflow: hidden;
+}
+body.zen .zen-only {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    grid-template-rows 0.6s var(--mood-ease),
+    opacity 0.5s ease 0.25s,
+    visibility 0s;
+}
+
+.zen-mode-label {
+  padding-bottom: 0.2rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  color: rgba(255, 248, 238, 0.9);
+  text-shadow: 0 1px 10px rgba(10, 20, 25, 0.35);
+}
+
+body.zen .timer-card {
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0), 0 0 0 0 rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0px) saturate(1);
+  -webkit-backdrop-filter: blur(0px) saturate(1);
+  pointer-events: none;
+}
+body.zen .timer-card::before {
+  animation: none;
+  opacity: 0;
+}
+body.zen .timer-digits {
+  font-size: clamp(4.5rem, 24vmin, 11rem);
+  color: #fff8ee;
+  text-shadow: 0 2px 24px rgba(10, 20, 25, 0.35), 0 1px 2px rgba(10, 20, 25, 0.3);
+}
+body.zen .progress-track { background-color: rgba(255, 255, 255, 0.18); }
+body.zen .progress-fill { background-color: rgba(255, 248, 238, 0.85); }
+
+.zen-exit {
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 999px;
+  color: #fff8ee;
+  background-color: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.3s ease,
+    visibility 0s linear 0.3s,
+    background-color 0.2s ease;
+}
+.zen-exit svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+body.zen .zen-exit {
+  opacity: 0.35;
+  visibility: visible;
+  transition:
+    opacity 0.6s ease 0.4s,
+    visibility 0s,
+    background-color 0.2s ease;
+}
+body.zen .zen-exit:hover,
+body.zen .zen-exit:focus-visible {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.22);
+  transition-delay: 0s;
+}
+
+/* ==========================================================================
+   CAPA 4: DIARIO DEL LAGO (modal)
+   ========================================================================== */
+.journal {
+  width: min(27rem, calc(100vw - 24px));
+  max-height: calc(100% - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  margin: auto;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  color: var(--ink);
+  background-color: var(--glass-bg-strong);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--ui-radius);
+  box-shadow: var(--glass-highlight), 0 30px 60px -20px rgba(60, 35, 15, 0.45);
+}
+.journal[open] {
+  animation: journal-in 0.45s cubic-bezier(0.34, 1.3, 0.5, 1);
+}
+.journal::backdrop {
+  background-color: rgba(35, 24, 14, 0.32);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+@keyframes journal-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+.journal-inner {
+  padding: 1.1rem 1.1rem 1.2rem;
+}
+
+.stat-tile {
+  padding: 0.65rem 0.4rem 0.7rem;
+  border-radius: 1rem;
+  text-align: center;
+  background-color: var(--well-bg);
+  border: 1px solid var(--well-border);
+}
+.stat-value {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.55rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.stat-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--ink-soft);
+}
+
+.journal-section { margin-top: 1rem; }
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.section-head h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+/* Minutos por día: una sola serie, un solo tono, barras finas sobre la línea base */
+.week-bars {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 0.6rem 0.4rem 0.35rem;
+  border-radius: 1rem;
+  background-color: var(--well-bg);
+  border: 1px solid var(--well-border);
+}
+.week-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0;
+  border-radius: 0.6rem;
+}
+.week-col:disabled { cursor: default; }
+.week-bar-area {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 4.5rem;
+  border-bottom: 1px solid var(--track-bg);
+}
+.week-bar {
+  width: 1.1rem;
+  max-width: 70%;
+  border-radius: 4px 4px 0 0;
+  background-color: var(--accent-strong);
+  opacity: 0.5;
+  transform-origin: bottom center;
+  transition: opacity 0.2s ease;
+}
+.journal[open] .week-bar {
+  animation: bar-grow 0.7s var(--mood-ease) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+@keyframes bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.week-col.is-selected .week-bar { opacity: 1; }
+.week-day {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.week-col.is-today .week-day {
+  color: var(--ink);
+  text-decoration: underline 2px var(--accent-strong);
+  text-underline-offset: 3px;
+}
+.week-col:disabled .week-day { opacity: 0.45; }
+
+/* Coleccionables: cada raza se dibuja con el propio LakeRenderer */
+.breed-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.5rem 0.3rem 0.6rem;
+  border-radius: 1rem;
+  text-align: center;
+  background-color: var(--well-bg);
+  border: 1px solid var(--well-border);
+}
+.breed-card.is-locked {
+  border-style: dashed;
+  border-color: var(--track-bg);
+  background-color: rgba(255, 255, 255, 0.25);
+}
+.breed-canvas {
+  width: 72px;
+  height: 52px;
+}
+.breed-card.is-locked .breed-canvas {
+  filter: brightness(0) opacity(0.18);
+}
+.breed-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.74rem;
+  line-height: 1.15;
+}
+.breed-meta {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.breed-since {
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  opacity: 0.8;
+}
+
+/* Notch y barra de gestos: el lago se dibuja también detrás de ellos (viewport-fit=cover)
+   y la interfaz se aparta lo justo. env() vale 0 donde no hay nada que esquivar. */
+body .hud {
+  --hud-pad: 0.75rem;
+  padding:
+    max(var(--hud-pad), env(safe-area-inset-top))
+    max(var(--hud-pad), env(safe-area-inset-right))
+    max(var(--hud-pad), env(safe-area-inset-bottom))
+    max(var(--hud-pad), env(safe-area-inset-left));
+}
+@media (min-width: 640px) {
+  body .hud { --hud-pad: 1.5rem; }
+}
+
+/* Pantallas bajas (móvil en horizontal): compactar la tarjeta */
+@media (max-height: 560px) {
+  .timer-digits { font-size: 3rem; margin: 0.2rem 0 0.4rem; }
+  .subtitle { display: none; }
+}
+
+/* Celular en horizontal: dos columnas para que todo quepa sin desplazarse.
+   Reloj a la izquierda; cabecera y mezclador a la derecha. En Zen, la columna
+   derecha se pliega (grid-template-columns se anima) y el reloj queda centrado. */
+/* (Se prefijan con body para ganar a las clases de Tailwind del mismo elemento: flex, max-w-xl, py-*) */
+@media (orientation: landscape) and (max-height: 560px) {
+  body .hud {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "main header"
+      "main footer";
+    column-gap: 0.75rem;
+    row-gap: 0.5rem;
+    max-width: 60rem;
+    transition:
+      grid-template-columns 0.6s var(--mood-ease),
+      column-gap 0.6s var(--mood-ease);
+  }
+  body.zen .hud {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0fr);
+    column-gap: 0;
+  }
+  body .hud-header { grid-area: header; }
+  body .hud-main {
+    grid-area: main;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  body .hud-footer {
+    grid-area: footer;
+    align-self: start;
+    max-height: 100%;
+    overflow-y: auto;             /* si el mezclador abierto no cabe, se desplaza dentro */
+    pointer-events: auto;
+    scrollbar-width: none;        /* se desplaza con el dedo, sin barra visible */
+  }
+  body .hud-footer::-webkit-scrollbar { display: none; }
+  body .channel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body .timer-card { padding-top: 0.85rem; padding-bottom: 0.9rem; }
+  body .mixer { padding: 0.7rem 0.8rem; }
+  body .compact-hide { display: none; }
+  .toggle-row { padding-top: 0.4rem; padding-bottom: 0.4rem; }
+  .toast {                        /* bajo la tarjeta no hay sitio: arriba de la pantalla */
+    position: fixed;
+    top: max(0.75rem, env(safe-area-inset-top));
+  }
+}
+
+/* Horizontal estrecho (p. ej. iPhone SE, 667×375): solo íconos y textos cortos */
+@media (orientation: landscape) and (max-height: 560px) and (max-width: 760px) {
+  body .compact-narrow-hide { display: none; }
+  body .timer-card { padding-left: 1rem; padding-right: 1rem; }
+  .segmented-btn { font-size: 0.72rem; padding-left: 0.25rem; padding-right: 0.25rem; }
+  .tool-btn { padding: 0 0.55rem; }
+  .tool-select { padding-left: 0.6rem; padding-right: 1.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+}
