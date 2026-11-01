@@ -98,6 +98,16 @@ export const DUCK_BREEDS = {
     cheek: 'rgba(244, 114, 182, 0.4)',
     neckRing: null,
     chest: null
+  },
+  peposaca: {
+    name: 'Negro Picazo',
+    body: '#000060',
+    head: '#000060',
+    wing: '#ccc',
+    beak: '#ff0000',
+    cheek: 'rgba(134, 239, 172, 0.35)',
+    neckRing: null,
+    chest: null
   }
 };
 
