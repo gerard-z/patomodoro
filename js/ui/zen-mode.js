@@ -8,7 +8,23 @@ export function setupZenMode({ showToast, isJournalOpen }) {
   const btnZen = document.getElementById('btnZen');
   const zenExitBtn = document.getElementById('zenExitBtn');
   const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+  // App instalada (manifest con display: fullscreen, o standalone si se instaló antes)
+  const isInstalledApp = window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches;
   let zenHintShown = false;
+
+  const enterFullscreen = () => {
+    if (document.fullscreenEnabled && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+    }
+  };
+
+  // En la app instalada Chrome solo dibuja detrás del notch (viewport-fit=cover) si la página
+  // pidió pantalla completa con requestFullscreen; display: fullscreen del manifest no basta y deja
+  // una franja negra. Se pide en cada toque mientras no esté activa (al volver de otra app se pierde).
+  // pointerup y no pointerdown: con el dedo, solo el toque al soltar cuenta como gesto del usuario.
+  if (isInstalledApp) {
+    window.addEventListener('pointerup', enterFullscreen, { capture: true });
+  }
 
   const isZen = () => document.body.classList.contains('zen');
 
@@ -20,16 +36,15 @@ export function setupZenMode({ showToast, isJournalOpen }) {
     if (enabled) {
       zenExitBtn.focus({ preventScroll: true });
       // En el celular, pantalla completa para que solo se vea el lago
-      if (isTouchDevice && document.fullscreenEnabled && !document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      }
+      if (isTouchDevice) enterFullscreen();
       if (!zenHintShown) {
         zenHintShown = true;
         showToast('👁️ Modo Zen · doble toque en una esquina para volver', { urgent: true });
       }
     } else {
       btnZen.focus({ preventScroll: true });
-      if (document.fullscreenElement) {
+      // En la app instalada se queda en pantalla completa: salir devolvería la franja del notch
+      if (document.fullscreenElement && !isInstalledApp) {
         document.exitFullscreen().catch(() => {});
       }
     }

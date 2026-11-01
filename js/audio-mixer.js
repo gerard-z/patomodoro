@@ -44,12 +44,12 @@ export class RelaxingAudioMixer {
       this.channels[key].gainNode = g;
       g.connect(this.masterGain);
     });
-
+    
+    this.isInitialized = true;
     this.setupWaterStream();
     this.setupForestBreeze();
     this.setupLoopTimers();
     this.updateAllGains();
-    this.isInitialized = true;
     this.decodePendingQuack();
   }
 
